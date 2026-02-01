@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <title>完成しないゲーム</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 左カラム：ゲーム情報 -->
+    <aside class="left-panel">
+      <div class="game-title">
+        <p class="title-ja" id="title-ja">読み込み中...</p>
+        <p class="title-en" id="title-en">Loading...</p>
+      </div>
+
+      <div class="game-sections">
+        <!-- 内容物 -->
+        <section class="game-section">
+          <div class="section-header">
+            <span class="header-ja">内容物</span>
+            <span class="header-en">Components</span>
+          </div>
+          <div class="section-content">
+            <p class="content-ja" id="components-ja"></p>
+            <p class="content-en" id="components-en"></p>
+          </div>
+        </section>
+
+        <!-- 手番でやること -->
+        <section class="game-section">
+          <div class="section-header">
+            <span class="header-ja">手番でやること</span>
+            <span class="header-en">Turn Actions</span>
+          </div>
+          <div class="section-content">
+            <ol class="content-ja" id="actions-ja"></ol>
+            <ol class="content-en" id="actions-en"></ol>
+          </div>
+        </section>
+
+        <!-- 勝利条件 -->
+        <section class="game-section">
+          <div class="section-header">
+            <span class="header-ja">勝利条件</span>
+            <span class="header-en">Victory Condition</span>
+          </div>
+          <div class="section-content">
+            <p class="content-ja" id="victory-ja"></p>
+            <p class="content-en" id="victory-en"></p>
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <!-- 右カラム：ルールログ -->
+    <main class="right-panel">
+      <div class="rule-list" id="rule-list">
+        <!-- ルールアイテムがここに追加される -->
+      </div>
+
+      <!-- 最新に戻るボタン -->
+      <button class="scroll-to-bottom" id="scroll-to-bottom" aria-hidden="true">
+        ↓ 最新
+      </button>
+
+      <!-- 下部ボタン -->
+      <div class="action-button-container idle" id="action-button-container">
+        <div class="progress-fill" id="progress-fill"></div>
+        <button class="action-button" id="action-button">
+          <span class="button-ja">続きを生成</span>
+          <span class="button-en">Continue Generating</span>
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- デバッグパネル -->
+  <div class="debug-panel" id="debug-panel" hidden>
+    <div class="debug-header">
+      <span>Debug Panel</span>
+      <button id="debug-close">×</button>
+    </div>
+    <div class="debug-content">
+      <p class="debug-version">v<span id="debug-version">0.0.0</span></p>
+
+      <div class="debug-section">
+        <div class="debug-section-title">基本設定</div>
+        <label>
+          Speed: <span id="speed-value">8</span>
+          <input type="range" id="speed-slider" min="1" max="100" value="8">
+        </label>
+      </div>
+
+      <div class="debug-section">
+        <div class="debug-section-title">ゲージ設定</div>
+        <label>
+          Duration: <span id="gauge-duration-value">54</span>s
+          <input type="range" id="gauge-duration-slider" min="10" max="120" value="54">
+        </label>
+        <label>
+          Pause at: <span id="gauge-pause-value">90</span>%
+          <input type="range" id="gauge-pause-slider" min="50" max="99" value="90">
+        </label>
+      </div>
+
+      <div class="debug-section">
+        <div class="debug-section-title">タイポ設定</div>
+        <label>
+          Typo %: <span id="typo-chance-value">5</span>
+          <input type="range" id="typo-chance-slider" min="0" max="20" value="5">
+        </label>
+        <label>
+          Typo Pause: <span id="typo-pause-value">4</span>x
+          <input type="range" id="typo-pause-slider" min="0.5" max="10" step="0.5" value="4">
+        </label>
+      </div>
+
+      <div class="debug-section">
+        <div class="debug-section-title">切り替え停止</div>
+        <label>
+          #→日: <span id="pause-num-ja-value">6</span>x
+          <input type="range" id="pause-num-ja-slider" min="0.5" max="15" step="0.5" value="6">
+        </label>
+        <label>
+          日→英: <span id="pause-ja-en-value">7.5</span>x
+          <input type="range" id="pause-ja-en-slider" min="0.5" max="15" step="0.5" value="7.5">
+        </label>
+        <label>
+          英→#: <span id="pause-en-num-value">24</span>
+          <input type="range" id="pause-en-num-slider" min="1" max="50" step="1" value="24">
+        </label>
+      </div>
+
+      <div class="debug-section">
+        <div class="debug-section-title">句読点停止</div>
+        <label>
+          。: <span id="pause-kuten-value">9</span>x
+          <input type="range" id="pause-kuten-slider" min="1" max="15" step="0.5" value="9">
+        </label>
+        <label>
+          、: <span id="pause-touten-value">7.5</span>x
+          <input type="range" id="pause-touten-slider" min="1" max="15" step="0.5" value="7.5">
+        </label>
+        <label>
+          「: <span id="pause-open-bracket-value">4</span>x
+          <input type="range" id="pause-open-bracket-slider" min="0.5" max="10" step="0.5" value="4">
+        </label>
+        <label>
+          」: <span id="pause-bracket-value">4</span>x
+          <input type="range" id="pause-bracket-slider" min="0.5" max="10" step="0.5" value="4">
+        </label>
+        <label>
+          .: <span id="pause-period-value">6.5</span>x
+          <input type="range" id="pause-period-slider" min="1" max="15" step="0.5" value="6.5">
+        </label>
+        <label>
+          ,: <span id="pause-comma-value">3</span>x
+          <input type="range" id="pause-comma-slider" min="0.5" max="10" step="0.5" value="3">
+        </label>
+        <label>
+          空白: <span id="pause-space-value">0.5</span>x
+          <input type="range" id="pause-space-slider" min="0.1" max="2" step="0.1" value="0.5">
+        </label>
+      </div>
+
+      <div class="debug-section">
+        <div class="debug-section-title">ランダム幅</div>
+        <label>
+          日本語: ±<span id="variance-ja-value">64</span>%
+          <input type="range" id="variance-ja-slider" min="0" max="100" value="64">
+        </label>
+        <label>
+          英語: ±<span id="variance-en-value">64</span>%
+          <input type="range" id="variance-en-slider" min="0" max="100" value="64">
+        </label>
+      </div>
+
+      <div class="debug-section">
+        <div class="debug-section-title">状態</div>
+        <p>Segment: <span id="debug-segment">0</span> / <span id="debug-total">0</span></p>
+        <p>Status: <span id="debug-status">待機中</span></p>
+      </div>
+
+      <div class="debug-buttons">
+        <button id="debug-export">Export</button>
+        <button id="debug-import">Import</button>
+      </div>
+      <textarea id="debug-export-area" style="display:none;" rows="8"></textarea>
+      <div class="debug-buttons">
+        <button id="debug-reset">Reset</button>
+        <button id="debug-cache-clear">Clear Cache</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
