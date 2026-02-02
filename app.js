@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.22';
+const VERSION = '1.0.23';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -895,19 +895,30 @@ function startGaugeTimer() {
   gaugeStartTime = Date.now();
   textComplete = false;
   gaugePausedAt90 = false;
+  lastGaugeProgress = 0;  // ゆらぎ用進捗をリセット
   animateGauge();
 }
+
+let lastGaugeProgress = 0;  // 前回の進捗を記憶（戻らないように）
 
 function animateGauge() {
   if (!gaugeStartTime) return;
 
   const elapsed = Date.now() - gaugeStartTime;
-  const baseProgress = Math.min(elapsed / state.gaugeDuration, state.gaugePausePoint);
 
-  // 呼吸のような波のゆらぎを追加
+  // 呼吸のような波で速度を変調（0〜1の範囲、負にならない）
   const wave = Math.sin(elapsed * state.gaugeWaveFrequency * 0.001 * Math.PI * 2);
-  const variance = wave * state.gaugeWaveAmplitude;
-  const progress = Math.max(0, Math.min(baseProgress + variance, state.gaugePausePoint));
+  const speedMultiplier = 1 + wave * state.gaugeWaveAmplitude * 10;  // 0.85〜1.15程度
+  const effectiveSpeed = Math.max(0, speedMultiplier);  // 負にならないように
+
+  // 基本進捗に速度変調を適用（積分的に進む）
+  const deltaTime = 16;  // 約60fps
+  const progressIncrement = (deltaTime / state.gaugeDuration) * effectiveSpeed;
+  let progress = Math.min(lastGaugeProgress + progressIncrement, state.gaugePausePoint);
+
+  // 進捗は常に増加のみ（戻らない）
+  progress = Math.max(lastGaugeProgress, progress);
+  lastGaugeProgress = progress;
 
   elements.progressFill.style.width = `${progress * 100}%`;
 
@@ -971,6 +982,7 @@ function resetProgressBar() {
   gaugeStartTime = null;
   textComplete = false;
   gaugePausedAt90 = false;
+  lastGaugeProgress = 0;  // ゆらぎ用進捗もリセット
   elements.progressFill.style.transition = '';
   elements.progressFill.style.width = '0%';
 }
