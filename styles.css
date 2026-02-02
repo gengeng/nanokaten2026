@@ -423,6 +423,8 @@ ol.content-en li {
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: move;
+  user-select: none;
 }
 
 .debug-header span {

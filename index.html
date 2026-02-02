@@ -87,6 +87,10 @@
       <button id="debug-close">×</button>
     </div>
     <div class="debug-content">
+      <div class="debug-buttons" style="margin-bottom: 12px;">
+        <button id="debug-cache-clear" style="width: 100%; background: #c00;">Clear Cache & Reload</button>
+      </div>
+
       <p class="debug-version">v<span id="debug-version">0.0.0</span></p>
 
       <div class="debug-section">
@@ -106,6 +110,18 @@
         <label>
           Pause at: <span id="gauge-pause-value">90</span>%
           <input type="range" id="gauge-pause-slider" min="50" max="99" value="90">
+        </label>
+        <label>
+          Pause ±: <span id="gauge-pause-variance-value">5</span>%
+          <input type="range" id="gauge-pause-variance-slider" min="0" max="20" value="5">
+        </label>
+        <label>
+          Stop Time: <span id="gauge-pause-duration-value">10</span>00ms
+          <input type="range" id="gauge-pause-duration-slider" min="1" max="30" value="10">
+        </label>
+        <label>
+          Stop ±: <span id="gauge-pause-duration-variance-value">30</span>%
+          <input type="range" id="gauge-pause-duration-variance-slider" min="0" max="80" value="30">
         </label>
         <label>
           Wave Amp: <span id="gauge-wave-amp-value">15</span>‰
@@ -202,7 +218,6 @@
       <textarea id="debug-export-area" style="display:none;" rows="8"></textarea>
       <div class="debug-buttons">
         <button id="debug-reset">Reset</button>
-        <button id="debug-cache-clear">Clear Cache</button>
       </div>
     </div>
   </div>

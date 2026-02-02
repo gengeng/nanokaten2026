@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.23';
+const VERSION = '1.0.24';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -21,6 +21,9 @@ const CONFIG = {
   // ゲージ設定
   gaugeDuration: 54000,    // 0→90%の時間（ms）
   gaugePausePoint: 0.90,   // 停止ポイント（0-1）
+  gaugePausePointVariance: 0.05, // 停止ポイントゆらぎ（±5%）
+  gaugePauseDuration: 1000,      // 停止時間（ms）
+  gaugePauseDurationVariance: 0.3, // 停止時間ゆらぎ（±30%）
   gaugeWaveAmplitude: 0.015, // ゆらぎの振幅（±1.5%）
   gaugeWaveFrequency: 0.3,   // 波の周波数（Hz）
 
@@ -69,6 +72,9 @@ const state = {
   // デバッグ用設定（リアルタイム変更可能）
   gaugeDuration: CONFIG.gaugeDuration,
   gaugePausePoint: CONFIG.gaugePausePoint,
+  gaugePausePointVariance: CONFIG.gaugePausePointVariance,
+  gaugePauseDuration: CONFIG.gaugePauseDuration,
+  gaugePauseDurationVariance: CONFIG.gaugePauseDurationVariance,
   gaugeWaveAmplitude: CONFIG.gaugeWaveAmplitude,
   gaugeWaveFrequency: CONFIG.gaugeWaveFrequency,
   typoChance: CONFIG.typoChance,
@@ -890,12 +896,18 @@ let gaugeStartTime = null;
 let gaugeAnimationFrame = null;
 let textComplete = false;  // 文字出力が完了したか
 let gaugePausedAt90 = false;  // 90%で一時停止中か
+let currentPausePoint = 0.90;  // 今回の停止ポイント（ゆらぎ適用後）
 
 function startGaugeTimer() {
   gaugeStartTime = Date.now();
   textComplete = false;
   gaugePausedAt90 = false;
   lastGaugeProgress = 0;  // ゆらぎ用進捗をリセット
+
+  // 停止ポイントにゆらぎを適用（毎回違う位置で止まる）
+  const variance = (Math.random() * 2 - 1) * state.gaugePausePointVariance;
+  currentPausePoint = Math.max(0.5, Math.min(0.99, state.gaugePausePoint + variance));
+
   animateGauge();
 }
 
@@ -914,7 +926,7 @@ function animateGauge() {
   // 基本進捗に速度変調を適用（積分的に進む）
   const deltaTime = 16;  // 約60fps
   const progressIncrement = (deltaTime / state.gaugeDuration) * effectiveSpeed;
-  let progress = Math.min(lastGaugeProgress + progressIncrement, state.gaugePausePoint);
+  let progress = Math.min(lastGaugeProgress + progressIncrement, currentPausePoint);
 
   // 進捗は常に増加のみ（戻らない）
   progress = Math.max(lastGaugeProgress, progress);
@@ -922,7 +934,7 @@ function animateGauge() {
 
   elements.progressFill.style.width = `${progress * 100}%`;
 
-  if (progress < state.gaugePausePoint) {
+  if (progress < currentPausePoint) {
     // まだ停止ポイントに達していない
     gaugeAnimationFrame = requestAnimationFrame(animateGauge);
   } else {
@@ -938,14 +950,20 @@ function animateGauge() {
 }
 
 function finishGauge() {
-  // 90% → 100% へスムーズにアニメーション
-  elements.progressFill.style.transition = 'width 0.5s ease-out';
-  elements.progressFill.style.width = '100%';
+  // 停止時間にゆらぎを適用
+  const durationVariance = (Math.random() * 2 - 1) * state.gaugePauseDurationVariance;
+  const pauseDuration = Math.max(100, state.gaugePauseDuration * (1 + durationVariance));
 
+  // 停止後 → 100% へスムーズにアニメーション
   setTimeout(() => {
-    elements.progressFill.style.transition = '';
-    onGaugeComplete();
-  }, 500);
+    elements.progressFill.style.transition = 'width 0.5s ease-out';
+    elements.progressFill.style.width = '100%';
+
+    setTimeout(() => {
+      elements.progressFill.style.transition = '';
+      onGaugeComplete();
+    }, 500);
+  }, pauseDuration);
 }
 
 function onGaugeComplete() {
@@ -1177,6 +1195,9 @@ const EXPORTABLE_KEYS = [
   'typewriterSpeed',
   'gaugeDuration',
   'gaugePausePoint',
+  'gaugePausePointVariance',
+  'gaugePauseDuration',
+  'gaugePauseDurationVariance',
   'gaugeWaveAmplitude',
   'gaugeWaveFrequency',
   'typoChance',
@@ -1298,6 +1319,9 @@ function setupDebugPanel() {
   // ゲージ設定
   setupSlider('gauge-duration-slider', 'gauge-duration-value', 'gaugeDuration', { scale: 1000 });
   setupSlider('gauge-pause-slider', 'gauge-pause-value', 'gaugePausePoint', { scale: 0.01 });
+  setupSlider('gauge-pause-variance-slider', 'gauge-pause-variance-value', 'gaugePausePointVariance', { scale: 0.01 });
+  setupSlider('gauge-pause-duration-slider', 'gauge-pause-duration-value', 'gaugePauseDuration', { scale: 100 });
+  setupSlider('gauge-pause-duration-variance-slider', 'gauge-pause-duration-variance-value', 'gaugePauseDurationVariance', { scale: 0.01 });
   setupSlider('gauge-wave-amp-slider', 'gauge-wave-amp-value', 'gaugeWaveAmplitude', { scale: 0.001, toFixed: 1 });
   setupSlider('gauge-wave-freq-slider', 'gauge-wave-freq-value', 'gaugeWaveFrequency', { scale: 0.1, toFixed: 1 });
 
@@ -1401,6 +1425,56 @@ function setupDebugPanel() {
       }
     }
   }, 500);
+
+  // デバッグパネルのドラッグ機能
+  const header = document.querySelector('.debug-header');
+  let isDragging = false;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+
+  const startDrag = (clientX, clientY) => {
+    isDragging = true;
+    const rect = panel.getBoundingClientRect();
+    dragOffsetX = clientX - rect.left;
+    dragOffsetY = clientY - rect.top;
+    panel.style.transition = 'none';
+  };
+
+  const doDrag = (clientX, clientY) => {
+    if (!isDragging) return;
+    const x = clientX - dragOffsetX;
+    const y = clientY - dragOffsetY;
+    panel.style.left = `${Math.max(0, x)}px`;
+    panel.style.top = `${Math.max(0, y)}px`;
+    panel.style.bottom = 'auto';
+    panel.style.right = 'auto';
+  };
+
+  const endDrag = () => {
+    isDragging = false;
+    panel.style.transition = '';
+  };
+
+  // マウスイベント
+  header.addEventListener('mousedown', (e) => {
+    startDrag(e.clientX, e.clientY);
+  });
+  document.addEventListener('mousemove', (e) => {
+    doDrag(e.clientX, e.clientY);
+  });
+  document.addEventListener('mouseup', endDrag);
+
+  // タッチイベント（iPad用）
+  header.addEventListener('touchstart', (e) => {
+    const touch = e.touches[0];
+    startDrag(touch.clientX, touch.clientY);
+  }, { passive: true });
+  document.addEventListener('touchmove', (e) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    doDrag(touch.clientX, touch.clientY);
+  }, { passive: true });
+  document.addEventListener('touchend', endDrag);
 }
 
 // ========================================
