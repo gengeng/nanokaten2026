@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.21';
+const VERSION = '1.0.22';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -21,6 +21,8 @@ const CONFIG = {
   // ゲージ設定
   gaugeDuration: 54000,    // 0→90%の時間（ms）
   gaugePausePoint: 0.90,   // 停止ポイント（0-1）
+  gaugeWaveAmplitude: 0.015, // ゆらぎの振幅（±1.5%）
+  gaugeWaveFrequency: 0.3,   // 波の周波数（Hz）
 
   // タイポ設定
   typoChance: 0.05,        // タイポ確率（0-1）
@@ -67,6 +69,8 @@ const state = {
   // デバッグ用設定（リアルタイム変更可能）
   gaugeDuration: CONFIG.gaugeDuration,
   gaugePausePoint: CONFIG.gaugePausePoint,
+  gaugeWaveAmplitude: CONFIG.gaugeWaveAmplitude,
+  gaugeWaveFrequency: CONFIG.gaugeWaveFrequency,
   typoChance: CONFIG.typoChance,
   typoPause: CONFIG.typoPause,
   pauseNumToJa: CONFIG.pauseNumToJa,
@@ -898,7 +902,13 @@ function animateGauge() {
   if (!gaugeStartTime) return;
 
   const elapsed = Date.now() - gaugeStartTime;
-  const progress = Math.min(elapsed / state.gaugeDuration, state.gaugePausePoint);
+  const baseProgress = Math.min(elapsed / state.gaugeDuration, state.gaugePausePoint);
+
+  // 呼吸のような波のゆらぎを追加
+  const wave = Math.sin(elapsed * state.gaugeWaveFrequency * 0.001 * Math.PI * 2);
+  const variance = wave * state.gaugeWaveAmplitude;
+  const progress = Math.max(0, Math.min(baseProgress + variance, state.gaugePausePoint));
+
   elements.progressFill.style.width = `${progress * 100}%`;
 
   if (progress < state.gaugePausePoint) {
@@ -1155,6 +1165,8 @@ const EXPORTABLE_KEYS = [
   'typewriterSpeed',
   'gaugeDuration',
   'gaugePausePoint',
+  'gaugeWaveAmplitude',
+  'gaugeWaveFrequency',
   'typoChance',
   'typoPause',
   'pauseNumToJa',
@@ -1274,6 +1286,8 @@ function setupDebugPanel() {
   // ゲージ設定
   setupSlider('gauge-duration-slider', 'gauge-duration-value', 'gaugeDuration', { scale: 1000 });
   setupSlider('gauge-pause-slider', 'gauge-pause-value', 'gaugePausePoint', { scale: 0.01 });
+  setupSlider('gauge-wave-amp-slider', 'gauge-wave-amp-value', 'gaugeWaveAmplitude', { scale: 0.001, toFixed: 1 });
+  setupSlider('gauge-wave-freq-slider', 'gauge-wave-freq-value', 'gaugeWaveFrequency', { scale: 0.1, toFixed: 1 });
 
   // タイポ設定
   setupSlider('typo-chance-slider', 'typo-chance-value', 'typoChance', { scale: 0.01 });
