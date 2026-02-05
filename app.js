@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.26';
+const VERSION = '1.0.27';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -112,10 +112,8 @@ const elements = {
   titleEn: document.getElementById('title-en'),
   componentsJa: document.getElementById('components-ja'),
   componentsEn: document.getElementById('components-en'),
-  actionsJa: document.getElementById('actions-ja'),
-  actionsEn: document.getElementById('actions-en'),
-  victoryJa: document.getElementById('victory-ja'),
-  victoryEn: document.getElementById('victory-en'),
+  handsJa: document.getElementById('hands-ja'),
+  handsEn: document.getElementById('hands-en'),
   ruleList: document.getElementById('rule-list'),
   actionButton: document.getElementById('action-button'),
   actionButtonContainer: document.getElementById('action-button-container'),
@@ -152,9 +150,6 @@ async function loadGameInfo() {
 
     const gameInfo = {
       title: { ja: '', en: '' },
-      components: { ja: [], en: [] },
-      actions: { ja: [], en: [] },
-      victory: { ja: '', en: '' },
     };
 
     // 2行目以降からデータを収集（1行目はヘッダー）
@@ -164,25 +159,11 @@ async function loadGameInfo() {
 
       const getValue = (cell) => (cell && cell.v) || '';
 
-      // 最初のデータ行からタイトルと勝利条件を取得
+      // 最初のデータ行からタイトルを取得
       if (index === 0) {
         gameInfo.title.ja = getValue(cells[0]);
         gameInfo.title.en = getValue(cells[1]);
-        gameInfo.victory.ja = getValue(cells[6]);
-        gameInfo.victory.en = getValue(cells[7]);
       }
-
-      // 内容物を収集
-      const componentJa = getValue(cells[2]);
-      const componentEn = getValue(cells[3]);
-      if (componentJa) gameInfo.components.ja.push(componentJa);
-      if (componentEn) gameInfo.components.en.push(componentEn);
-
-      // アクションを収集
-      const actionJa = getValue(cells[4]);
-      const actionEn = getValue(cells[5]);
-      if (actionJa) gameInfo.actions.ja.push(actionJa);
-      if (actionEn) gameInfo.actions.en.push(actionEn);
     });
 
     state.gameInfo = gameInfo;
@@ -207,12 +188,6 @@ function renderGameInfo() {
 
   elements.titleJa.textContent = info.title.ja;
   elements.titleEn.textContent = info.title.en;
-  elements.componentsJa.textContent = info.components.ja.join('、');
-  elements.componentsEn.textContent = info.components.en.join(', ');
-  elements.actionsJa.innerHTML = info.actions.ja.map(action => `<li>${action}</li>`).join('');
-  elements.actionsEn.innerHTML = info.actions.en.map(action => `<li>${action}</li>`).join('');
-  elements.victoryJa.textContent = info.victory.ja;
-  elements.victoryEn.textContent = info.victory.en;
 }
 
 // ========================================
@@ -231,6 +206,10 @@ async function loadRules() {
         num: cells[0]?.v || 0,
         ja: cells[1]?.v || '',
         en: cells[2]?.v || '',
+        componentJa: cells[3]?.v || '',
+        componentEn: cells[4]?.v || '',
+        jankenJa: cells[5]?.v || '',
+        jankenEn: cells[6]?.v || '',
       };
     }).filter(rule => rule && rule.ja);
 
@@ -267,10 +246,84 @@ function prepareSegments(rules) {
         enFull: i === jaParts.length - 1 ? rule.en : null,  // 最後のセグメントのみ英語
         isFirst: i === 0,  // このルールの最初のセグメントか
         isLast: i === jaParts.length - 1,  // このルールの最後のセグメントか
+        // 最初のセグメントにのみ内容物・じゃんけん情報を付与
+        componentJa: i === 0 ? rule.componentJa : '',
+        componentEn: i === 0 ? rule.componentEn : '',
+        jankenJa: i === 0 ? rule.jankenJa : '',
+        jankenEn: i === 0 ? rule.jankenEn : '',
       });
     });
   });
   return segments;
+}
+
+// ========================================
+// 左パネル：内容物・じゃんけんの手
+// ========================================
+let componentCount = 0;  // 表示済み内容物の数
+let handsCount = 0;      // 表示済みじゃんけんの手の数
+let leftPanelQueue = Promise.resolve();  // 左パネルタイプライターのキュー
+
+// 即時表示（初期表示用）
+function addComponentInstant(ja, en) {
+  if (componentCount > 0) {
+    elements.componentsJa.appendChild(document.createTextNode(' / '));
+    elements.componentsEn.appendChild(document.createTextNode(' / '));
+  }
+  elements.componentsJa.appendChild(document.createTextNode(ja));
+  elements.componentsEn.appendChild(document.createTextNode(en));
+  componentCount++;
+}
+
+function addHandInstant(ja, en) {
+  if (handsCount > 0) {
+    elements.handsJa.appendChild(document.createElement('br'));
+    elements.handsEn.appendChild(document.createElement('br'));
+  }
+  elements.handsJa.appendChild(document.createTextNode(ja));
+  elements.handsEn.appendChild(document.createTextNode(en));
+  handsCount++;
+}
+
+// タイプライター表示（生成中用、キューで逐次実行）
+function queueLeftPanelTypewriter(type, ja, en) {
+  leftPanelQueue = leftPanelQueue.then(() => typewriterLeftPanel(type, ja, en));
+}
+
+async function typewriterLeftPanel(type, ja, en) {
+  const isComponent = type === 'component';
+  const jaEl = isComponent ? elements.componentsJa : elements.handsJa;
+  const enEl = isComponent ? elements.componentsEn : elements.handsEn;
+  const count = isComponent ? componentCount : handsCount;
+
+  // 区切りを追加
+  if (count > 0) {
+    if (isComponent) {
+      jaEl.appendChild(document.createTextNode(' / '));
+      enEl.appendChild(document.createTextNode(' / '));
+    } else {
+      jaEl.appendChild(document.createElement('br'));
+      enEl.appendChild(document.createElement('br'));
+    }
+  }
+
+  // 日本語をタイプライター表示
+  for (const char of ja) {
+    jaEl.appendChild(document.createTextNode(char));
+    await delay(getTypewriterDelay(char));
+  }
+
+  // 英語をタイプライター表示
+  for (const char of en) {
+    enEl.appendChild(document.createTextNode(char));
+    await delay(getTypewriterDelayEn(char));
+  }
+
+  if (isComponent) {
+    componentCount++;
+  } else {
+    handsCount++;
+  }
 }
 
 // ========================================
@@ -545,6 +598,14 @@ function displayInitialRules() {
         jaElement.classList.remove('generating');
         enElement.classList.remove('generating');
       }
+
+      // 内容物・じゃんけんの手を即時表示
+      if (segment.componentJa) {
+        addComponentInstant(segment.componentJa, segment.componentEn);
+      }
+      if (segment.jankenJa) {
+        addHandInstant(segment.jankenJa, segment.jankenEn);
+      }
     }
 
     // 日本語テキストを追加（タイプライターなし）
@@ -683,6 +744,14 @@ async function generateUntilNextBreakpoint() {
       }
       // 番号をタイプライター表示
       await typewriterNumber(seg.num);
+
+      // 内容物・じゃんけんの手をタイプライター表示（右パネルと並行）
+      if (seg.componentJa) {
+        queueLeftPanelTypewriter('component', seg.componentJa, seg.componentEn);
+      }
+      if (seg.jankenJa) {
+        queueLeftPanelTypewriter('hands', seg.jankenJa, seg.jankenEn);
+      }
     }
 
     // 日本語タイプライター（統合進捗）

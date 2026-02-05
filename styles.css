@@ -147,18 +147,6 @@ body {
   line-height: 1.5;
 }
 
-/* 番号付きリスト */
-ol.content-ja,
-ol.content-en {
-  padding-left: 21px;
-  list-style-position: outside;
-}
-
-ol.content-ja li,
-ol.content-en li {
-  margin-bottom: 0;
-}
-
 /* ========================================
    右カラム
    ======================================== */
