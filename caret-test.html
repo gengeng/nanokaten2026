@@ -147,6 +147,19 @@
     </div>
   </div>
 
+  <!-- Ink Fade: 黒→グレー侵食デモ -->
+  <h2>Ink Fade: 黒文字のグレー侵食</h2>
+  <div class="demo-section">
+    <div class="demo-label">タイプライター + インク侵食 + 有機体変形（日本語→英語→キャレットが有機体に変化）</div>
+    <div class="demo-text" id="inkfade-container" style="max-width: 600px; color: rgba(165, 165, 165, 0.6);">
+      <span id="inkfade-text"></span><span class="caret" id="inkfade-caret" style="background:#000;"></span>
+    </div>
+    <div style="margin-top: 12px;">
+      <button id="btn-inkfade-start" style="font-size:13px;padding:8px 20px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;margin-right:8px;">▶ 開始</button>
+      <button id="btn-inkfade-reset" style="font-size:13px;padding:8px 20px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">↺ リセット</button>
+    </div>
+  </div>
+
   <!-- 3. 複数サイズ -->
   <h2>Sizes</h2>
   <div class="demo-section">
@@ -266,6 +279,18 @@
     <label>Bar Height 縦棒の高さ: <span class="value" id="val-barh">100%</span></label>
     <input type="range" id="slider-barh" min="10" max="100" value="100" step="5">
   </div>
+  <div class="control-group">
+    <label>Ink Fade Delay 侵食開始: <span class="value" id="val-inkdelay">0.2s</span></label>
+    <input type="range" id="slider-inkdelay" min="0" max="10.0" value="0.2" step="0.1">
+  </div>
+  <div class="control-group">
+    <label>Ink Fade Duration 侵食時間: <span class="value" id="val-inkdur">0.4s</span></label>
+    <input type="range" id="slider-inkdur" min="0.1" max="10.0" value="0.4" step="0.1">
+  </div>
+  <div class="control-group">
+    <label>Ink Fade Variance 揺らぎ: <span class="value" id="val-inkvar">±0.1s</span></label>
+    <input type="range" id="slider-inkvar" min="0" max="2.0" value="0.1" step="0.01">
+  </div>
 </div>
 
 <script>
@@ -290,6 +315,11 @@ const morphConfig = {
   toBarEasing: 'ease-out',
   barWidth: 14,          // 縦棒の幅（%）
   barHeight: 100,        // 縦棒の高さ（%）
+  // インク侵食（黒→グレーフェード）
+  inkFadeDelay: 200,     // 打った後フェード開始までの待ち（ms）
+  inkFadeDuration: 400,  // フェード所要時間（ms）
+  inkFadeVariance: 0.1,  // delay/durationの揺らぎ（±秒）
+  inkFadeColor: 'rgba(165, 165, 165, 0.6)', // 最終色（generatingと同じ）
 };
 
 // Generate a polygon with N vertices
@@ -628,6 +658,9 @@ const sliderDefs = [
   { id: 'slider-tobar',   valId: 'val-tobar',   key: 'toBarDuration',  unit: 's',  isInt: false, multiply: 1000 },
   { id: 'slider-barw',    valId: 'val-barw',    key: 'barWidth',       unit: '%',  isInt: false },
   { id: 'slider-barh',    valId: 'val-barh',    key: 'barHeight',      unit: '%',  isInt: false },
+  { id: 'slider-inkdelay', valId: 'val-inkdelay', key: 'inkFadeDelay',    unit: 's',  isInt: false, multiply: 1000 },
+  { id: 'slider-inkdur',   valId: 'val-inkdur',   key: 'inkFadeDuration', unit: 's', isInt: false, multiply: 1000 },
+  { id: 'slider-inkvar',   valId: 'val-inkvar',   key: 'inkFadeVariance', unit: 's', isInt: false, prefix: '±' },
 ];
 
 sliderDefs.forEach(def => {
@@ -636,7 +669,7 @@ sliderDefs.forEach(def => {
 
   slider.addEventListener('input', () => {
     const raw = def.isInt ? parseInt(slider.value) : parseFloat(slider.value);
-    valEl.textContent = slider.value + def.unit;
+    valEl.textContent = (def.prefix || '') + slider.value + def.unit;
     morphConfig[def.key] = def.multiply ? raw * def.multiply : raw;
 
     // Update caret sizes
@@ -1016,6 +1049,236 @@ function autoCycleAnimationLoop(time) {
 
 initAutoCycle();
 requestAnimationFrame(autoCycleAnimationLoop);
+
+// ============================
+// Ink Fade: 黒→グレー侵食デモ
+// ============================
+
+const INKFADE_SAMPLE_JA = '#264 じゃんけんにおいて、グーはチョキに勝ち、チョキはパーに勝ち、パーはグーに勝つ。ただし、第三者が「待った」と宣言した場合、その勝負は無効となり、再度じゃんけんを行わなければならない。';
+const INKFADE_SAMPLE_EN = '#264 In rock-paper-scissors, rock beats scissors, scissors beats paper, and paper beats rock. However, if a third party declares "wait," the match is void, and the game must be replayed.';
+const inkfadeTextEl = document.getElementById('inkfade-text');
+const inkfadeCaret = document.getElementById('inkfade-caret');
+let inkfadeRunning = false;
+let inkfadeCharSpans = []; // { el, birthTime, delay, duration } — 各文字の生まれた時刻＋個別揺らぎ
+let inkfadeMorphRunning = false;
+let inkfadeMorphRAF = null;
+
+function inkfadeReset() {
+  inkfadeRunning = false;
+  inkfadeMorphRunning = false;
+  if (inkfadeMorphRAF) { cancelAnimationFrame(inkfadeMorphRAF); inkfadeMorphRAF = null; }
+  inkfadeTextEl.innerHTML = '';
+  inkfadeCharSpans = [];
+  // キャレットをバー状態にリセット
+  inkfadeCaret.style.display = '';
+  inkfadeCaret.style.width = '';
+  inkfadeCaret.style.height = '';
+  inkfadeCaret.style.clipPath = '';
+  inkfadeCaret.style.transform = '';
+  inkfadeCaret.classList.remove('thinking');
+}
+
+// 文字ごとに揺らぎ付きのdelay/durationを生成
+function inkfadeRandomize(base) {
+  const v = morphConfig.inkFadeVariance * 1000; // 秒→ms
+  return Math.max(0, base + (Math.random() * 2 - 1) * v);
+}
+
+// rAFで全文字の色を毎フレーム更新
+function inkfadeFadeLoop(time) {
+  if (!inkfadeRunning && inkfadeCharSpans.length === 0 && !inkfadeMorphRunning) return;
+
+  for (const item of inkfadeCharSpans) {
+    const age = time - item.birthTime;
+
+    if (age < item.delay) {
+      // まだ黒のまま
+      item.el.style.color = '#000';
+    } else if (age < item.delay + item.duration) {
+      // フェード中：黒 → グレーに補間
+      const t = (age - item.delay) / item.duration;
+      const r = Math.round(165 * t);
+      const g = Math.round(165 * t);
+      const b = Math.round(165 * t);
+      const a = 1 - 0.4 * t; // 1.0 → 0.6
+      item.el.style.color = `rgba(${r}, ${g}, ${b}, ${a})`;
+    } else {
+      // フェード完了
+      item.el.style.color = morphConfig.inkFadeColor;
+    }
+  }
+
+  requestAnimationFrame(inkfadeFadeLoop);
+}
+
+// タイプライター：1文字ずつ打つ
+async function inkfadeTypeText(text) {
+  for (let i = 0; i < text.length; i++) {
+    if (!inkfadeRunning) break;
+
+    const char = text[i];
+    const span = document.createElement('span');
+    span.textContent = char;
+    span.style.color = '#000'; // 黒で生まれる
+
+    // キャレットの前に挿入
+    inkfadeTextEl.appendChild(span);
+
+    inkfadeCharSpans.push({
+      el: span,
+      birthTime: performance.now(),
+      delay: inkfadeRandomize(morphConfig.inkFadeDelay),
+      duration: inkfadeRandomize(morphConfig.inkFadeDuration),
+    });
+
+    // タイプライター速度（簡易版：固定80ms + 句読点で長め）
+    let charDelay = 80;
+    if ('。．.'.includes(char)) charDelay = 500;
+    else if ('、，,'.includes(char)) charDelay = 350;
+    else if ('「『'.includes(char)) charDelay = 200;
+    else if ('」』'.includes(char)) charDelay = 200;
+    else if (char === ' ') charDelay = 40;
+
+    await new Promise(r => setTimeout(r, charDelay));
+  }
+}
+
+// Ink Fade デモ用：バー → 多角形トランジション（キャレット要素をモーフ）
+function inkfadeStartMorph() {
+  inkfadeMorphRunning = true;
+
+  // キャレットを多角形モード（thinkingクラス）に
+  inkfadeCaret.classList.add('thinking');
+  inkfadeCaret.style.width = morphConfig.size + 'px';
+  inkfadeCaret.style.height = morphConfig.size + 'px';
+  inkfadeCaret.style.verticalAlign = 'middle';
+
+  // まずバー→多角形トランジション
+  const barShape = getBarShape();
+  const targetShapeRaw = makeRawShape(morphConfig.verticesMin + Math.floor(Math.random() * (morphConfig.verticesMax - morphConfig.verticesMin + 1)));
+  const barResampled = resamplePolygon(barShape, RESOLUTION);
+  const polyResampled = resamplePolygon(targetShapeRaw, RESOLUTION);
+  const polyAligned = findBestRotation(barResampled, polyResampled);
+
+  const transStart = performance.now();
+  let ifMorphCurrentShapeRaw = targetShapeRaw;
+  let ifMorphCurrentN = morphConfig.verticesMin;
+  let ifMorphPhase = 'transition'; // 'transition' → 'hold' → 'morph' → 'hold' → ...
+  let ifMorphStartTime = 0;
+  let ifMorphHoldStart = 0;
+  let ifMorphCurrentShape = null;
+  let ifMorphNextShape = null;
+
+  function inkfadeMorphLoop(time) {
+    if (!inkfadeMorphRunning) return;
+
+    if (ifMorphPhase === 'transition') {
+      // バー → 多角形トランジション
+      const elapsed = time - transStart;
+      const rawT = Math.min(1, elapsed / morphConfig.toBarDuration);
+      const easingFn = easings[morphConfig.toBarEasing] || easings['ease-out'];
+      const t = easingFn(rawT);
+
+      // 幅もバー幅→フルサイズへ遷移
+      const barPx = getBarPixelWidth();
+      const fullSize = morphConfig.size;
+      const widthT = 1 - Math.pow(1 - rawT, 3);
+      const w = barPx + (fullSize - barPx) * widthT;
+      inkfadeCaret.style.width = w + 'px';
+
+      const interpolated = lerpPolygons(barResampled, polyAligned, t);
+      inkfadeCaret.style.clipPath = toClipPath(interpolated);
+      inkfadeCaret.style.transform = 'scale(1)';
+
+      if (rawT >= 1) {
+        ifMorphPhase = 'hold';
+        ifMorphHoldStart = time;
+        inkfadeCaret.style.clipPath = toClipPath(ifMorphCurrentShapeRaw);
+        inkfadeCaret.style.width = fullSize + 'px';
+      }
+    }
+
+    if (ifMorphPhase === 'hold') {
+      const holdElapsed = time - ifMorphHoldStart;
+      if (holdElapsed >= morphConfig.holdDuration) {
+        // 次のモーフ開始
+        const nextN = (() => {
+          const min = morphConfig.verticesMin;
+          const max = morphConfig.verticesMax;
+          let n;
+          do { n = min + Math.floor(Math.random() * (max - min + 1)); }
+          while (n === ifMorphCurrentN && max > min);
+          return n;
+        })();
+        const nextShapeRaw = makeRawShape(nextN);
+        ifMorphCurrentShape = resamplePolygon(ifMorphCurrentShapeRaw, RESOLUTION);
+        const nextResampled = resamplePolygon(nextShapeRaw, RESOLUTION);
+        ifMorphNextShape = findBestRotation(ifMorphCurrentShape, nextResampled);
+        ifMorphCurrentShapeRaw = nextShapeRaw;
+        ifMorphCurrentN = nextN;
+        ifMorphStartTime = time;
+        ifMorphPhase = 'morph';
+      }
+    }
+
+    if (ifMorphPhase === 'morph') {
+      const elapsed = time - ifMorphStartTime;
+      const rawT = Math.min(1, elapsed / morphConfig.morphDuration);
+      const t = getEasing(rawT);
+      const interpolated = lerpPolygons(ifMorphCurrentShape, ifMorphNextShape, t);
+      const scaleFactor = 1 + (morphConfig.scalePulse - 1) * Math.sin(rawT * Math.PI);
+      inkfadeCaret.style.clipPath = toClipPath(interpolated);
+      inkfadeCaret.style.transform = `scale(${scaleFactor.toFixed(3)})`;
+
+      if (rawT >= 1) {
+        ifMorphPhase = 'hold';
+        ifMorphHoldStart = time;
+        inkfadeCaret.style.clipPath = toClipPath(ifMorphCurrentShapeRaw);
+        inkfadeCaret.style.transform = 'scale(1)';
+      }
+    }
+
+    inkfadeMorphRAF = requestAnimationFrame(inkfadeMorphLoop);
+  }
+
+  inkfadeMorphRAF = requestAnimationFrame(inkfadeMorphLoop);
+}
+
+async function inkfadeStart() {
+  if (inkfadeRunning) return;
+  inkfadeReset();
+  inkfadeRunning = true;
+
+  // フェードループ開始
+  requestAnimationFrame(inkfadeFadeLoop);
+
+  // 1. 日本語テキストをタイプ
+  await inkfadeTypeText(INKFADE_SAMPLE_JA);
+  if (!inkfadeRunning) return;
+
+  // 2. 思考ポーズ（バーキャレットのまま少し間を置く）
+  await new Promise(r => setTimeout(r, 800));
+  if (!inkfadeRunning) return;
+
+  // 3. 改行を入れて英語テキストをタイプ
+  const br = document.createElement('br');
+  inkfadeTextEl.appendChild(br);
+
+  await inkfadeTypeText(INKFADE_SAMPLE_EN);
+  if (!inkfadeRunning) return;
+
+  // 4. テキスト完了 → 少し間を置いてから有機体（多角形）へ変形
+  await new Promise(r => setTimeout(r, 600));
+  if (!inkfadeRunning) return;
+
+  // バー → 多角形モーフ開始
+  inkfadeStartMorph();
+
+  inkfadeRunning = false;
+}
+
+document.getElementById('btn-inkfade-start').addEventListener('click', inkfadeStart);
+document.getElementById('btn-inkfade-reset').addEventListener('click', inkfadeReset);
 </script>
 </body>
 </html>

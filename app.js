@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.37';
+const VERSION = '1.0.38';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -426,15 +426,20 @@ function createRuleElement(num) {
 }
 
 function makeCurrentRuleBlack() {
-  if (state.currentNumberElement) {
-    state.currentNumberElement.classList.remove('generating');
-  }
-  if (state.currentJaElement) {
-    state.currentJaElement.classList.remove('generating');
-  }
-  if (state.currentEnElement) {
-    state.currentEnElement.classList.remove('generating');
-  }
+  // インク侵食の対象スパンを確定（まだフェード中のものも最終色へ）
+  // → inline colorを削除して親のCSSカラーを継承させる
+  // → .generating削除でCSS transitionにより黒にフェード
+  [state.currentNumberElement, state.currentJaElement, state.currentEnElement].forEach(el => {
+    if (!el) return;
+    // インク侵食リストからクリア＆inline color除去
+    inkFadeFinalizeElement(el);
+    // spanのinline colorを除去 → 親のcolorを継承
+    el.querySelectorAll('span[style*="color"]').forEach(span => {
+      span.style.removeProperty('color');
+    });
+    // generating クラス削除 → CSS transition で黒へ
+    el.classList.remove('generating');
+  });
 }
 
 // ========================================
@@ -511,7 +516,85 @@ const morphConfig = {
   toBarEasing: 'ease-out',
   barWidth: 14,          // 縦棒の幅（%）
   barHeight: 100,        // 縦棒の高さ（%）
+  // インク侵食（黒→グレーフェード）
+  inkFadeDelay: 100,     // 打った後フェード開始までの待ち（ms）
+  inkFadeDuration: 300,  // フェード所要時間（ms）
+  inkFadeVariance: 0.05, // delay/durationの揺らぎ（±秒）
+  inkFadeColor: 'rgba(165, 165, 165, 0.6)', // 最終色（generatingと同じ）
 };
+
+// ========================================
+// インク侵食（Ink Fade）
+// ========================================
+let inkFadeCharSpans = []; // { el, birthTime, delay, duration }
+let inkFadeRunning = false;
+
+function inkFadeRandomize(base) {
+  const v = morphConfig.inkFadeVariance * 1000; // 秒→ms
+  return Math.max(0, base + (Math.random() * 2 - 1) * v);
+}
+
+// 文字をインク侵食対象として登録
+function inkFadeRegister(spanEl) {
+  inkFadeCharSpans.push({
+    el: spanEl,
+    birthTime: performance.now(),
+    delay: inkFadeRandomize(morphConfig.inkFadeDelay),
+    duration: inkFadeRandomize(morphConfig.inkFadeDuration),
+  });
+  if (!inkFadeRunning) {
+    inkFadeRunning = true;
+    requestAnimationFrame(inkFadeFadeLoop);
+  }
+}
+
+// rAFで全文字の色を毎フレーム更新
+function inkFadeFadeLoop(time) {
+  if (inkFadeCharSpans.length === 0) {
+    inkFadeRunning = false;
+    return;
+  }
+
+  let allDone = true;
+  for (const item of inkFadeCharSpans) {
+    const age = time - item.birthTime;
+
+    if (age < item.delay) {
+      // まだ黒のまま
+      item.el.style.color = '#000';
+      allDone = false;
+    } else if (age < item.delay + item.duration) {
+      // フェード中：黒 → グレーに補間
+      const t = (age - item.delay) / item.duration;
+      const r = Math.round(165 * t);
+      const a = 1 - 0.4 * t; // 1.0 → 0.6
+      item.el.style.color = `rgba(${r}, ${r}, ${r}, ${a})`;
+      allDone = false;
+    } else {
+      // フェード完了
+      item.el.style.color = morphConfig.inkFadeColor;
+    }
+  }
+
+  // 全完了でも古いスパンは維持（色の再適用は不要だがメモリ節約のため定期クリーンアップ）
+  if (allDone) {
+    inkFadeRunning = false;
+    return;
+  }
+
+  requestAnimationFrame(inkFadeFadeLoop);
+}
+
+// ルール確定時：対象要素内の全スパンを最終色に固定し、リストからクリア
+function inkFadeFinalizeElement(parentEl) {
+  inkFadeCharSpans = inkFadeCharSpans.filter(item => {
+    if (parentEl.contains(item.el)) {
+      item.el.style.color = morphConfig.inkFadeColor;
+      return false;
+    }
+    return true;
+  });
+}
 
 // ========================================
 // 多角形生成・補間
@@ -1286,14 +1369,20 @@ async function typewriterJaWithProgress(text, baseChars, totalChars, isNewRule =
       await delay(getTypewriterDelay() * 0.5);
     }
 
-    const textNode = document.createTextNode(char);
+    // インク侵食用：spanでラップして黒で生成→じわっとグレーへ
+    const charSpan = document.createElement('span');
+    charSpan.textContent = char;
+    charSpan.style.color = '#000';
 
     // キャレットの前にテキストを挿入
     if (state.currentCaret && state.currentCaret.parentNode) {
-      state.currentCaret.parentNode.insertBefore(textNode, state.currentCaret);
+      state.currentCaret.parentNode.insertBefore(charSpan, state.currentCaret);
     } else {
-      state.currentJaElement.appendChild(textNode);
+      state.currentJaElement.appendChild(charSpan);
     }
+
+    // インク侵食登録
+    inkFadeRegister(charSpan);
 
     // 統合進捗更新
     const progress = (baseChars + i + 1) / totalChars;
@@ -1324,8 +1413,14 @@ async function typewriterNumber(num) {
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
-    const textNode = document.createTextNode(char);
-    caret.parentNode.insertBefore(textNode, caret);
+    // インク侵食用：spanでラップ
+    const charSpan = document.createElement('span');
+    charSpan.textContent = char;
+    charSpan.style.color = '#000';
+    caret.parentNode.insertBefore(charSpan, caret);
+
+    // インク侵食登録
+    inkFadeRegister(charSpan);
 
     if (state.isAutoScroll) {
       scrollToBottom();
@@ -1350,8 +1445,14 @@ async function typewriterEnWithProgress(text, baseChars, totalChars) {
 
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
-    const textNode = document.createTextNode(char);
-    caret.parentNode.insertBefore(textNode, caret);
+    // インク侵食用：spanでラップ
+    const charSpan = document.createElement('span');
+    charSpan.textContent = char;
+    charSpan.style.color = '#000';
+    caret.parentNode.insertBefore(charSpan, caret);
+
+    // インク侵食登録
+    inkFadeRegister(charSpan);
 
     // 統合進捗更新
     const progress = (baseChars + i + 1) / totalChars;
