@@ -88,6 +88,40 @@ body {
   line-height: normal;
 }
 
+/* numericText風アニメーション */
+.ver-digit {
+  display: inline-block;
+  position: relative;
+  overflow: hidden;
+  vertical-align: bottom;
+  /* 1文字分の幅を確保（0.7emはmonospace的な近似） */
+  width: 0.7em;
+  height: 1.2em;
+}
+
+.ver-digit-out {
+  display: block;
+  animation: ver-slide-out 0.3s ease-in forwards;
+}
+
+.ver-digit-in {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: ver-slide-in 0.3s ease-out forwards;
+}
+
+@keyframes ver-slide-out {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(100%); opacity: 0; }
+}
+
+@keyframes ver-slide-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 .title-ja {
   font-size: 36px;
   font-weight: 700;

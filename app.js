@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.46';
+const VERSION = '1.0.47';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -269,8 +269,56 @@ function calculateVersion(rules, upToNum) {
   return { major, minor };
 }
 
-function updateVersionDisplay(major, minor) {
-  elements.gameVersion.textContent = `Version ${major}.${minor}`;
+function updateVersionDisplay(major, minor, animate = true) {
+  const newText = `${major}.${minor}`;
+  const container = document.getElementById('ver-digits');
+  if (!container) return;
+
+  const oldText = container.dataset.value || '';
+  container.dataset.value = newText;
+
+  // 初期表示またはアニメーション不要の場合
+  if (!animate || !oldText) {
+    container.textContent = newText;
+    return;
+  }
+
+  // 同じなら何もしない
+  if (oldText === newText) return;
+
+  // 桁ごとの差分アニメーション
+  const maxLen = Math.max(oldText.length, newText.length);
+  container.textContent = '';
+
+  for (let i = 0; i < maxLen; i++) {
+    const oldChar = oldText[i] || '';
+    const newChar = newText[i] || '';
+
+    if (oldChar === newChar) {
+      container.appendChild(document.createTextNode(newChar));
+    } else {
+      // スライドアニメーション
+      const wrapper = document.createElement('span');
+      wrapper.className = 'ver-digit';
+
+      const out = document.createElement('span');
+      out.className = 'ver-digit-out';
+      out.textContent = oldChar;
+
+      const inn = document.createElement('span');
+      inn.className = 'ver-digit-in';
+      inn.textContent = newChar;
+
+      wrapper.appendChild(out);
+      wrapper.appendChild(inn);
+      container.appendChild(wrapper);
+
+      // アニメーション完了後にクリーンアップ
+      inn.addEventListener('animationend', () => {
+        wrapper.replaceWith(document.createTextNode(newChar));
+      }, { once: true });
+    }
+  }
 }
 
 // 即時表示（初期表示用）
@@ -1238,7 +1286,7 @@ function displayInitialRules() {
   const lastDisplayedNum = state.segments[initialEndIndex]?.num;
   if (lastDisplayedNum) {
     const ver = calculateVersion(state.rules, lastDisplayedNum);
-    updateVersionDisplay(ver.major, ver.minor);
+    updateVersionDisplay(ver.major, ver.minor, false);
   }
 
   console.log(`Initial display complete. Next segment index: ${state.currentSegmentIndex}`);
