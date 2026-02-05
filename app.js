@@ -5,12 +5,11 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.33';
+const VERSION = '1.0.34';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
   rulesSheetId: '487776336',
-  gameInfoSheetId: '1056169981',
   typewriterSpeed: 8, // 1-100
   // URLパラメータまたはリモート設定から取得
   startRule: parseInt(new URLSearchParams(window.location.search).get('startRule')) || 8,
@@ -59,7 +58,6 @@ const state = {
   rules: [],
   segments: [],  // 「、」で分割されたセグメント
   currentSegmentIndex: 0,
-  gameInfo: null,
   isGenerating: false,
   isThinking: false,  // 文字出力完了後、ゲージ待ち状態
   isPaused: false,  // リモートからの一時停止フラグ
@@ -107,8 +105,6 @@ let titleTapTimer = null;
 // DOM要素
 // ========================================
 const elements = {
-  titleJa: document.getElementById('title-ja'),
-  titleEn: document.getElementById('title-en'),
   componentsJa: document.getElementById('components-ja'),
   componentsEn: document.getElementById('components-en'),
   handsJa: document.getElementById('hands-ja'),
@@ -141,62 +137,6 @@ async function fetchSheetData(sheetId, options = {}) {
   const response = await fetch(getSheetUrl(sheetId, options));
   const text = await response.text();
   return parseGoogleSheetResponse(text);
-}
-
-// ========================================
-// ゲーム情報の読み込みと表示
-// ========================================
-async function loadGameInfo() {
-  try {
-    const data = await fetchSheetData(CONFIG.gameInfoSheetId);
-    const rows = data.table.rows;
-
-    const gameInfo = {
-      title: { ja: '', en: '' },
-    };
-
-    // 2行目以降からデータを収集（1行目はヘッダー）
-    rows.slice(1).forEach((row, index) => {
-      const cells = row.c;
-      if (!cells) return;
-
-      const getValue = (cell) => (cell && cell.v) || '';
-
-      // 最初のデータ行からタイトルを取得
-      if (index === 0) {
-        gameInfo.title.ja = getValue(cells[0]);
-        gameInfo.title.en = getValue(cells[1]);
-      }
-    });
-
-    state.gameInfo = gameInfo;
-    // キャッシュに保存
-    localStorage.setItem('cachedGameInfo', JSON.stringify({ version: VERSION, data: gameInfo }));
-    renderGameInfo();
-  } catch (error) {
-    console.error('Failed to load game info:', error);
-    // キャッシュから復帰を試みる
-    const rawCached = localStorage.getItem('cachedGameInfo');
-    if (rawCached) {
-      const cached = JSON.parse(rawCached);
-      if (cached?.version === VERSION && cached.data) {
-        console.log('Loading game info from versioned cache');
-        state.gameInfo = cached.data;
-        renderGameInfo();
-      } else {
-        console.log('GameInfo cache version mismatch, clearing');
-        localStorage.removeItem('cachedGameInfo');
-      }
-    }
-  }
-}
-
-function renderGameInfo() {
-  const info = state.gameInfo;
-  if (!info) return;
-
-  elements.titleJa.textContent = info.title.ja;
-  elements.titleEn.textContent = info.title.en;
 }
 
 // ========================================
@@ -1626,11 +1566,8 @@ async function init() {
 
   setupEventListeners();
 
-  // ルールとゲーム情報を読み込み（ルールシートにconfig列も含む）
-  await Promise.all([
-    loadGameInfo(),
-    loadRules(),
-  ]);
+  // ルールを読み込み（ルールシートにconfig列も含む）
+  await loadRules();
   console.log(`Rules loaded: ${state.rules.length}, Segments: ${state.segments.length}`);
 
   // リモート設定を適用（URLパラメータがない場合）
