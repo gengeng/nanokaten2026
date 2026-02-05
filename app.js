@@ -697,7 +697,6 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   state.isThinking = false;
   updateButtonState();
   updatePageTitle();
-  reportStatus('更新中');
 
   // ボタン押下時に最下部へスクロール＆自動スクロール有効化
   state.isAutoScroll = true;

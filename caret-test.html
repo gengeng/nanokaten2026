@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caret Test</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Noto Serif JP", "Hiragino Mincho ProN", serif;
+    background: #fff;
+    color: #000;
+    padding: 40px;
+    line-height: 1.8;
+  }
+  h1 { font-size: 14px; font-weight: normal; margin-bottom: 32px; color: #999; }
+  h2 { font-size: 13px; font-weight: normal; margin: 32px 0 12px; color: #666; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+
+  /* ========== Caret Styles (from production) ========== */
+  .caret {
+    display: inline-block;
+    width: 4px;
+    height: 1em;
+    background: #000000;
+    vertical-align: middle;
+    margin-left: 2px;
+    transition: width 0.3s, height 0.3s, border-radius 0.3s;
+  }
+  .caret.thinking {
+    width: var(--caret-size, 20px);
+    height: var(--caret-size, 20px);
+    border-radius: 50%;
+    animation: breathing var(--breathing-duration, 1.5s) ease-in-out infinite;
+  }
+  @keyframes breathing {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(var(--breathing-scale, 1.2));
+      opacity: var(--breathing-opacity, 0.7);
+    }
+  }
+  .caret.generating {
+    background: #999999;
+  }
+
+  /* ========== Demo Layout ========== */
+  .demo-section {
+    margin-bottom: 24px;
+    padding: 20px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+  }
+  .demo-label {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 8px;
+  }
+  .demo-text {
+    font-size: 16px;
+    line-height: 2;
+  }
+
+  /* ========== Controls ========== */
+  .controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #f8f8f8;
+    border-top: 1px solid #ddd;
+    padding: 20px 40px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+  }
+  .control-group label {
+    display: block;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+  .control-group input[type="range"] {
+    width: 100%;
+  }
+  .control-group .value {
+    font-size: 11px;
+    color: #999;
+    text-align: right;
+  }
+  .toggle-btn {
+    font-size: 12px;
+    padding: 6px 16px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 3px;
+    margin-right: 8px;
+  }
+  .toggle-btn:hover { background: #f0f0f0; }
+  .toggle-btn.active { background: #000; color: #fff; border-color: #000; }
+
+  .content { padding-bottom: 180px; }
+</style>
+</head>
+<body>
+<div class="content">
+  <h1>Caret Test — 待機中キャレット検証</h1>
+
+  <!-- 1. 全状態の一覧 -->
+  <h2>States</h2>
+  <div class="demo-section">
+    <div class="demo-label">通常（縦棒）</div>
+    <div class="demo-text">テキストの末尾<span class="caret" id="caret-normal"></span></div>
+  </div>
+  <div class="demo-section">
+    <div class="demo-label">思考（正円 + 呼吸）</div>
+    <div class="demo-text">テキストの末尾<span class="caret thinking" id="caret-thinking"></span></div>
+  </div>
+  <div class="demo-section">
+    <div class="demo-label">生成中（グレー縦棒）</div>
+    <div class="demo-text">テキストの末尾<span class="caret generating" id="caret-generating"></span></div>
+  </div>
+  <div class="demo-section">
+    <div class="demo-label">生成中 + 思考（グレー正円 + 呼吸）</div>
+    <div class="demo-text">テキストの末尾<span class="caret thinking generating" id="caret-thinking-gen"></span></div>
+  </div>
+
+  <!-- 2. テキスト文脈 -->
+  <h2>In Context</h2>
+  <div class="demo-section">
+    <div class="demo-label">ルール文中での見え方</div>
+    <div class="demo-text" style="max-width: 600px;">
+      #264 じゃんけんにおいて、グーはチョキに勝ち、チョキはパーに勝ち、パーはグーに勝つ。ただし、第三者が「待った」と宣言した場合、その勝負は無効となり、<span class="caret thinking" id="caret-context"></span>
+    </div>
+  </div>
+
+  <!-- 3. トグルデモ -->
+  <h2>Toggle</h2>
+  <div class="demo-section">
+    <div class="demo-label">状態遷移を確認（ボタンで切り替え）</div>
+    <div class="demo-text" style="margin-bottom: 16px;">
+      切り替えテスト<span class="caret" id="caret-toggle"></span>
+    </div>
+    <button class="toggle-btn active" id="btn-bar">縦棒</button>
+    <button class="toggle-btn" id="btn-think">思考</button>
+    <button class="toggle-btn" id="btn-gen">生成中</button>
+    <button class="toggle-btn" id="btn-gen-think">生成中+思考</button>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="control-group">
+    <label>Circle Size: <span class="value" id="val-size">20px</span></label>
+    <input type="range" id="slider-size" min="8" max="40" value="20" step="1">
+  </div>
+  <div class="control-group">
+    <label>Duration: <span class="value" id="val-duration">1.5s</span></label>
+    <input type="range" id="slider-duration" min="0.3" max="4" value="1.5" step="0.1">
+  </div>
+  <div class="control-group">
+    <label>Scale: <span class="value" id="val-scale">1.2</span></label>
+    <input type="range" id="slider-scale" min="1.0" max="1.8" value="1.2" step="0.05">
+  </div>
+  <div class="control-group">
+    <label>Min Opacity: <span class="value" id="val-opacity">0.7</span></label>
+    <input type="range" id="slider-opacity" min="0.1" max="1.0" value="0.7" step="0.05">
+  </div>
+</div>
+
+<script>
+  const root = document.documentElement;
+
+  // Sliders
+  const sliders = {
+    size:     { el: document.getElementById('slider-size'),     val: document.getElementById('val-size'),     prop: '--caret-size',          unit: 'px' },
+    duration: { el: document.getElementById('slider-duration'), val: document.getElementById('val-duration'), prop: '--breathing-duration',   unit: 's' },
+    scale:    { el: document.getElementById('slider-scale'),    val: document.getElementById('val-scale'),    prop: '--breathing-scale',      unit: '' },
+    opacity:  { el: document.getElementById('slider-opacity'),  val: document.getElementById('val-opacity'),  prop: '--breathing-opacity',    unit: '' },
+  };
+
+  for (const [key, s] of Object.entries(sliders)) {
+    s.el.addEventListener('input', () => {
+      const v = s.el.value;
+      s.val.textContent = v + s.unit;
+      if (s.unit) {
+        root.style.setProperty(s.prop, v + s.unit);
+      } else {
+        root.style.setProperty(s.prop, v);
+      }
+      // keyframes can't read CSS vars at animation time in all browsers,
+      // so rebuild the keyframes dynamically
+      rebuildKeyframes();
+    });
+  }
+
+  function rebuildKeyframes() {
+    const scale = sliders.scale.el.value;
+    const opacity = sliders.opacity.el.value;
+    const duration = sliders.duration.el.value;
+
+    // Remove old stylesheet if exists
+    let sheet = document.getElementById('dynamic-keyframes');
+    if (sheet) sheet.remove();
+
+    sheet = document.createElement('style');
+    sheet.id = 'dynamic-keyframes';
+    sheet.textContent = `
+      @keyframes breathing {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(${scale}); opacity: ${opacity}; }
+      }
+      .caret.thinking {
+        animation-duration: ${duration}s;
+      }
+    `;
+    document.head.appendChild(sheet);
+  }
+
+  // Toggle buttons
+  const caretToggle = document.getElementById('caret-toggle');
+  const buttons = {
+    'btn-bar':        [],
+    'btn-think':      ['thinking'],
+    'btn-gen':        ['generating'],
+    'btn-gen-think':  ['thinking', 'generating'],
+  };
+
+  for (const [id, classes] of Object.entries(buttons)) {
+    document.getElementById(id).addEventListener('click', () => {
+      // Reset
+      caretToggle.className = 'caret';
+      classes.forEach(c => caretToggle.classList.add(c));
+      // Button active state
+      Object.keys(buttons).forEach(bid => {
+        document.getElementById(bid).classList.toggle('active', bid === id);
+      });
+    });
+  }
+</script>
+</body>
+</html>
