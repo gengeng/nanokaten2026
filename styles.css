@@ -451,7 +451,6 @@ body {
   display: inline-block;
   text-align: left;
   min-width: 3.5em;
-  margin-left: -0.1em;
 }
 
 /* 生成中状態：コンテナ側で制御 */
