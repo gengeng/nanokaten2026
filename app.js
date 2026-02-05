@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.49';
+const VERSION = '1.0.50';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -1381,6 +1381,13 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   const { segments: segmentsToGenerate, totalChars } = calculateSegmentsToGenerate();
   console.log(`Total chars: ${totalChars}`);
 
+  // バージョン更新（ボタン押下時に即反映）
+  const lastSegInBatch = segmentsToGenerate[segmentsToGenerate.length - 1];
+  if (lastSegInBatch) {
+    const ver = calculateVersion(state.rules, lastSegInBatch.num);
+    updateVersionDisplay(ver.major, ver.minor);
+  }
+
   // ゲージタイマー開始（モーション完了後に増加開始）
   startGaugeTimer();
 
@@ -1440,10 +1447,6 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
         queueLeftPanelTypewriter('hands', state.pendingHands.ja, state.pendingHands.en);
         state.pendingHands = null;
       }
-
-      // バージョン更新
-      const ver = calculateVersion(state.rules, seg.num);
-      updateVersionDisplay(ver.major, ver.minor);
     }
 
     state.currentSegmentIndex++;
