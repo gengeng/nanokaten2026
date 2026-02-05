@@ -78,7 +78,6 @@ body {
 }
 
 .game-version {
-  display: inline-block;
   margin-top: 8px;
   padding: 4px 10px;
   font-size: 14px;
@@ -86,6 +85,7 @@ body {
   color: #FFF;
   background: #000;
   line-height: normal;
+  width: fit-content;
 }
 
 /* numericText風アニメーション */
