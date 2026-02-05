@@ -169,13 +169,6 @@ body {
   gap: 80px;
   /* 下部ボタン分の余白（ボタン高さ155px + 余白80px + 追加余白80px） */
   padding-bottom: 315px;
-  /* スクロールバー非表示 */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.rule-list::-webkit-scrollbar {
-  display: none;
 }
 
 /* ルールアイテム */
