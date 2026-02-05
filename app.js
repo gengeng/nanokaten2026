@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.27';
+const VERSION = '1.0.28';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -203,13 +203,17 @@ async function loadRules() {
       if (!cells) return null;
 
       return {
-        num: cells[0]?.v || 0,
-        ja: cells[1]?.v || '',
-        en: cells[2]?.v || '',
-        componentJa: cells[3]?.v || '',
-        componentEn: cells[4]?.v || '',
-        jankenJa: cells[5]?.v || '',
-        jankenEn: cells[6]?.v || '',
+        num: cells[0]?.v || 0,           // A: num
+        // cells[1] = major (skip)
+        // cells[2] = ref (skip)
+        ja: cells[3]?.v || '',            // D: ja
+        en: cells[4]?.v || '',            // E: en
+        // cells[5] = auto_translate (skip)
+        jankenJa: cells[6]?.v || '',      // G: janken_ja
+        jankenEn: cells[7]?.v || '',      // H: janken_en
+        // cells[8] = auto_translate_janken_en (skip)
+        componentJa: cells[9]?.v || '',   // J: component_ja
+        componentEn: cells[10]?.v || '',  // K: component_en
       };
     }).filter(rule => rule && rule.ja);
 
