@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.41';
+const VERSION = '1.0.42';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -71,6 +71,8 @@ const state = {
   currentEnElement: null,    // 現在表示中の英語要素
   currentNumberElement: null, // 現在表示中の番号要素
   currentCaret: null,         // 画面上の唯一のキャレット
+  pendingComponent: null,     // ルール完了後に左カラム表示する内容物データ
+  pendingHands: null,         // ルール完了後に左カラム表示する手データ
 
   // デバッグ用設定（リアルタイム変更可能）
   gaugeDuration: CONFIG.gaugeDuration,
@@ -1303,8 +1305,6 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   transformCaretToBar();
 
   let charsDone = 0;
-  let pendingComponent = null;  // ルール完了後に左カラム表示するデータ
-  let pendingHands = null;
 
   for (const seg of segmentsToGenerate) {
     // 新しいルール番号なら要素を作成
@@ -1325,10 +1325,10 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
 
       // 内容物・じゃんけんの手データを一時保持（ルール完了後に表示する）
       if (seg.componentJa) {
-        pendingComponent = { ja: seg.componentJa, en: seg.componentEn };
+        state.pendingComponent = { ja: seg.componentJa, en: seg.componentEn };
       }
       if (seg.jankenJa) {
-        pendingHands = { ja: seg.jankenJa, en: seg.jankenEn };
+        state.pendingHands = { ja: seg.jankenJa, en: seg.jankenEn };
       }
     }
 
@@ -1345,15 +1345,17 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
       makeCurrentRuleBlack();
       // アニメーション完了を待つ（英語→次の番号への間）
       await delay(state.pauseEnToNum * 100);
+    }
 
-      // ルール完了後に左カラム表示を発火（右パネルと並行）
-      if (pendingComponent) {
-        queueLeftPanelTypewriter('component', pendingComponent.ja, pendingComponent.en);
-        pendingComponent = null;
+    // ルール完了後に左カラム表示を発火（右パネルと並行）
+    if (seg.isLast) {
+      if (state.pendingComponent) {
+        queueLeftPanelTypewriter('component', state.pendingComponent.ja, state.pendingComponent.en);
+        state.pendingComponent = null;
       }
-      if (pendingHands) {
-        queueLeftPanelTypewriter('hands', pendingHands.ja, pendingHands.en);
-        pendingHands = null;
+      if (state.pendingHands) {
+        queueLeftPanelTypewriter('hands', state.pendingHands.ja, state.pendingHands.en);
+        state.pendingHands = null;
       }
     }
 
