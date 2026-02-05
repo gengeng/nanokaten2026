@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.30';
+const VERSION = '1.0.31';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -124,8 +124,12 @@ const elements = {
 // ========================================
 // Googleスプレッドシート データ取得
 // ========================================
-function getSheetUrl(sheetId) {
-  return `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=out:json&gid=${sheetId}`;
+function getSheetUrl(sheetId, options = {}) {
+  let url = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=out:json&gid=${sheetId}`;
+  if (options.headers !== undefined) {
+    url += `&headers=${options.headers}`;
+  }
+  return url;
 }
 
 function parseGoogleSheetResponse(text) {
@@ -134,8 +138,8 @@ function parseGoogleSheetResponse(text) {
   return JSON.parse(jsonString[1]);
 }
 
-async function fetchSheetData(sheetId) {
-  const response = await fetch(getSheetUrl(sheetId));
+async function fetchSheetData(sheetId, options = {}) {
+  const response = await fetch(getSheetUrl(sheetId, options));
   const text = await response.text();
   return parseGoogleSheetResponse(text);
 }
@@ -1260,7 +1264,8 @@ async function loadRemoteConfig() {
   if (!CONFIG.configSheetId) return null;
 
   try {
-    const data = await fetchSheetData(CONFIG.configSheetId);
+    // configシートはヘッダー行なし → headers=0で全行をデータとして読む
+    const data = await fetchSheetData(CONFIG.configSheetId, { headers: 0 });
     const config = {};
     data.table.rows.forEach(row => {
       if (row.c && row.c[0]?.v !== undefined && row.c[1]?.v !== undefined) {
