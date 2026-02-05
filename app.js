@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.28';
+const VERSION = '1.0.29';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -168,16 +168,22 @@ async function loadGameInfo() {
 
     state.gameInfo = gameInfo;
     // キャッシュに保存
-    localStorage.setItem('cachedGameInfo', JSON.stringify(gameInfo));
+    localStorage.setItem('cachedGameInfo', JSON.stringify({ version: VERSION, data: gameInfo }));
     renderGameInfo();
   } catch (error) {
     console.error('Failed to load game info:', error);
     // キャッシュから復帰を試みる
-    const cached = localStorage.getItem('cachedGameInfo');
-    if (cached) {
-      console.log('Loading game info from cache');
-      state.gameInfo = JSON.parse(cached);
-      renderGameInfo();
+    const rawCached = localStorage.getItem('cachedGameInfo');
+    if (rawCached) {
+      const cached = JSON.parse(rawCached);
+      if (cached?.version === VERSION && cached.data) {
+        console.log('Loading game info from versioned cache');
+        state.gameInfo = cached.data;
+        renderGameInfo();
+      } else {
+        console.log('GameInfo cache version mismatch, clearing');
+        localStorage.removeItem('cachedGameInfo');
+      }
     }
   }
 }
@@ -218,7 +224,7 @@ async function loadRules() {
     }).filter(rule => rule && rule.ja);
 
     // キャッシュに保存
-    localStorage.setItem('cachedRules', JSON.stringify(state.rules));
+    localStorage.setItem('cachedRules', JSON.stringify({ version: VERSION, data: state.rules }));
 
     // セグメント化（「、」で分割）
     state.segments = prepareSegments(state.rules);
@@ -227,10 +233,22 @@ async function loadRules() {
   } catch (error) {
     console.error('Failed to load rules:', error);
     // キャッシュから復帰を試みる
-    const cached = localStorage.getItem('cachedRules');
-    if (cached) {
-      console.log('Loading rules from cache');
-      state.rules = JSON.parse(cached);
+    const rawCached = localStorage.getItem('cachedRules');
+    if (rawCached) {
+      const cached = JSON.parse(rawCached);
+      // バージョン付きキャッシュか旧形式かを判定
+      if (cached?.version === VERSION && cached.data) {
+        console.log('Loading rules from versioned cache');
+        state.rules = cached.data;
+      } else if (Array.isArray(cached)) {
+        console.log('Loading rules from legacy cache (clearing)');
+        localStorage.removeItem('cachedRules');
+        return;  // 旧キャッシュは使わない
+      } else {
+        console.log('Cache version mismatch, clearing');
+        localStorage.removeItem('cachedRules');
+        return;
+      }
       state.segments = prepareSegments(state.rules);
       console.log(`Loaded ${state.rules.length} rules from cache`);
     }
@@ -549,7 +567,7 @@ function findSegmentIndexForRule(ruleNum, position) {
   let lastIndex = -1;
 
   for (let i = 0; i < state.segments.length; i++) {
-    if (state.segments[i].num === ruleNum) {
+    if (Number(state.segments[i].num) === Number(ruleNum)) {
       if (firstIndex === -1) firstIndex = i;
       lastIndex = i;
     }
@@ -576,12 +594,15 @@ function displayInitialRules() {
   const ruleEnd = findSegmentIndexForRule(startRule, 'last');
 
   if (ruleEnd === -1) {
-    console.log(`Rule #${startRule} not found, displaying all available rules`);
-    return;
+    console.warn(`Rule #${startRule} not found in ${state.segments.length} segments, starting from beginning`);
+    // フォールバック：先頭のブレークポイントまで表示
+    if (state.segments.length === 0) return;
   }
 
   // 次のルールの最初のブレークポイントまで表示
-  const initialEndIndex = findNextBreakpointIndex(ruleEnd + 1);
+  const initialEndIndex = ruleEnd === -1
+    ? findNextBreakpointIndex(0)
+    : findNextBreakpointIndex(ruleEnd + 1);
 
   for (let i = 0; i <= initialEndIndex; i++) {
     const segment = state.segments[i];
@@ -597,7 +618,7 @@ function displayInitialRules() {
       numberElement.textContent = `#${segment.num}`;
 
       // 開始ルール以下は黒、それ以降はグレー
-      if (segment.num <= startRule) {
+      if (Number(segment.num) <= Number(startRule)) {
         numberElement.classList.remove('generating');
         jaElement.classList.remove('generating');
         enElement.classList.remove('generating');
@@ -1592,6 +1613,7 @@ async function init() {
   // リモート設定を最初に読み込み（URLパラメータがない場合）
   if (!new URLSearchParams(window.location.search).has('startRule')) {
     const remoteConfig = await loadRemoteConfig();
+    console.log('Remote config:', remoteConfig);
     if (remoteConfig?.startRule !== undefined) {
       const startRule = parseInt(remoteConfig.startRule);
       if (!isNaN(startRule)) {
@@ -1600,11 +1622,13 @@ async function init() {
       }
     }
   }
+  console.log(`CONFIG.startRule = ${CONFIG.startRule}`);
 
   await Promise.all([
     loadGameInfo(),
     loadRules(),
   ]);
+  console.log(`Rules loaded: ${state.rules.length}, Segments: ${state.segments.length}`);
 
   // 初期ルールを表示
   displayInitialRules();
