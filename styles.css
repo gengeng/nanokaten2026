@@ -449,8 +449,9 @@ body {
 .action-button .button-en .countdown-time {
   font-variant-numeric: tabular-nums;
   display: inline-block;
-  text-align: center;
+  text-align: left;
   min-width: 3.5em;
+  margin-left: -0.2em;
 }
 
 /* 生成中状態：コンテナ側で制御 */
