@@ -1579,6 +1579,9 @@ async function init() {
   // 初期ルールを表示
   displayInitialRules();
 
+  // 初回の自動更新タイマー開始
+  startAutoGenerateTimer();
+
   // デバッグパネルをセットアップ
   setupDebugPanel();
 
