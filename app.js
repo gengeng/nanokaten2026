@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.43';
+const VERSION = '1.0.44';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -2171,14 +2171,15 @@ function startRemoteConfigPolling() {
         reportStatus('待機中');
       }
 
-      // 開始ルール番号の確認（次回リロード時に反映）
+      // 開始ルール番号の変更検知 → 自動リロード
       if (config.startRule !== undefined) {
         const newStartRule = parseInt(config.startRule);
         if (!isNaN(newStartRule) && newStartRule !== CONFIG.startRule) {
-          console.log(`Start rule updated: ${CONFIG.startRule} -> ${newStartRule}`);
-          // URLパラメータがない場合のみリモート設定を使用
+          console.log(`Start rule updated: ${CONFIG.startRule} -> ${newStartRule}, reloading...`);
           if (!new URLSearchParams(window.location.search).has('startRule')) {
-            CONFIG.startRule = newStartRule;
+            reportStatus('リモートリロード');
+            location.reload();
+            return;
           }
         }
       }
