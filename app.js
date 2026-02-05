@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.29';
+const VERSION = '1.0.30';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -1613,7 +1613,7 @@ async function init() {
   // リモート設定を最初に読み込み（URLパラメータがない場合）
   if (!new URLSearchParams(window.location.search).has('startRule')) {
     const remoteConfig = await loadRemoteConfig();
-    console.log('Remote config:', remoteConfig);
+    console.log('Remote config:', JSON.stringify(remoteConfig));
     if (remoteConfig?.startRule !== undefined) {
       const startRule = parseInt(remoteConfig.startRule);
       if (!isNaN(startRule)) {
