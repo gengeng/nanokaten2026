@@ -143,6 +143,7 @@ generating → idle:
 
 - ローカル確認: `python3 -m http.server 8000` → `http://localhost:8000`
 - デプロイ: GitHub Pages（main ブランチへ push で自動デプロイ）
+- **バージョン管理**: コミット・プッシュ時は必ず `app.js` 冒頭の `const VERSION = 'x.y.z'` を更新すること。デバッグパネルに表示されるため、デプロイ済みバージョンの特定に使う
 - テストHTMLはパラメータ調整→本番（app.js）に反映の流れで使う
 - テストHTMLのスタイルは本番（styles.css / index.html）と一致させること
 - ボタンテキスト色はCSSクラスで制御し、インラインの `style.color` で上書きしないこと
