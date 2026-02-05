@@ -15,7 +15,7 @@ const CONFIG = {
   // URLパラメータまたはリモート設定から取得
   startRule: parseInt(new URLSearchParams(window.location.search).get('startRule')) || 8,
   // GAS直接呼び出し（ステータス記録用）
-  statusGasUrl: 'https://script.google.com/macros/s/AKfycbz6WRfOl1llGv9-7SI0g5r9FKoTUH62jbRTfeGQOMouK3mA86A7lRqiVQfIOT9HEwgwpA/exec',
+  statusGasUrl: 'https://script.google.com/macros/s/AKfycbw2y_-q8WI8M4EwnNHWtH3ss73x2bMo6VlpdPiTMfY8RLfmbujNhZh16fudlHUnFms3TQ/exec',
 
   // ゲージ設定
   gaugeDuration: 54000,    // 0→90%の時間（ms）
