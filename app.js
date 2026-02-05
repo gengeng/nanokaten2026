@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.31';
+const VERSION = '1.0.32';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -1264,14 +1264,20 @@ async function loadRemoteConfig() {
   if (!CONFIG.configSheetId) return null;
 
   try {
-    // configシートはヘッダー行なし → headers=0で全行をデータとして読む
-    const data = await fetchSheetData(CONFIG.configSheetId, { headers: 0 });
+    // CSVで取得（gviz/tqだと型推論でnullになる問題を回避）
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/export?format=csv&gid=${CONFIG.configSheetId}`;
+    const response = await fetch(csvUrl);
+    const text = await response.text();
+
     const config = {};
-    data.table.rows.forEach(row => {
-      if (row.c && row.c[0]?.v !== undefined && row.c[1]?.v !== undefined) {
-        config[row.c[0].v] = row.c[1].v;
+    text.trim().split('\n').forEach(line => {
+      const [key, ...rest] = line.split(',');
+      const value = rest.join(',').trim();
+      if (key && value !== '') {
+        config[key.trim()] = value;
       }
     });
+    console.log('Remote config parsed:', JSON.stringify(config));
     return config;
   } catch (e) {
     console.error('Failed to load remote config:', e);
