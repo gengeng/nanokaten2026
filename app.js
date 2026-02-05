@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.39';
+const VERSION = '1.0.40';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
