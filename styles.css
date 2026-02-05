@@ -79,7 +79,7 @@ body {
 
 .title-ja {
   font-size: 36px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: normal;
   color: #000000;
 }
@@ -147,6 +147,39 @@ body {
   line-height: 1.5;
 }
 
+/* 左パネルハイライト */
+.left-highlight {
+  position: relative;
+  background: #000;
+  color: #FFF;
+  padding: 1px 4px;
+}
+
+.content-en .left-highlight {
+  color: #FFF;
+}
+
+/* ハイライト解除アニメーション */
+.left-highlight.hl-removing {
+  background: transparent;
+  color: inherit;
+  transition: color 0.35s ease-out;
+}
+
+.left-highlight.hl-removing::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #000;
+  z-index: -1;
+  animation: hl-wipe-out 0.35s ease-out forwards;
+}
+
+@keyframes hl-wipe-out {
+  from { clip-path: inset(0 0 0 0); }
+  to { clip-path: inset(0 0 0 100%); }
+}
+
 /* ========================================
    右カラム
    ======================================== */
@@ -166,7 +199,7 @@ body {
   padding: 80px;
   display: flex;
   flex-direction: column;
-  gap: 80px;
+  gap: 64px;
   /* 下部の余白：最後のルールとボタンの間にスペース */
   padding-bottom: 80px;
 }
@@ -179,13 +212,13 @@ body {
 }
 
 .rule-number {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 700;
   color: #999999;
   flex-shrink: 0;
   line-height: 1.5;
   /* 桁数が増えても右のテキストがズレないように固定幅 */
-  min-width: 96px;
+  min-width: 56px;
   text-align: left;
 }
 
@@ -198,14 +231,14 @@ body {
 }
 
 .rule-ja {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 700;
   color: #000000;
   transition: color 0.5s ease-out;
 }
 
 .rule-en {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #000000;
   transition: color 0.5s ease-out;
@@ -227,8 +260,8 @@ body {
 
 /* 思考状態（多角形モーフィング — JSがフレーム単位で制御） */
 .caret.thinking {
-  width: var(--caret-size, 32px);
-  height: var(--caret-size, 32px);
+  width: var(--caret-size, 24px);
+  height: var(--caret-size, 24px);
   border-radius: 0;
   animation: none;
   transition: none; /* JSがフレーム単位で制御 */

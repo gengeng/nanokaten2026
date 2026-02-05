@@ -324,6 +324,30 @@
     <label>Ink Fade Variance 揺らぎ: <span class="val-group"><input class="value" id="val-inkvar" value="±0.1"><span class="unit">s</span></span></label>
     <input type="range" id="slider-inkvar" min="0" max="2.0" value="0.1" step="0.01">
   </div>
+  <div class="control-group">
+    <label>Pulse Range パルス文字数: <span class="val-group"><input class="value" id="val-pulserange" value="3"></span></label>
+    <input type="range" id="slider-pulserange" min="1" max="8" value="3" step="1">
+  </div>
+  <div class="control-group">
+    <label>Pulse Intensity 0 隣接: <span class="val-group"><input class="value" id="val-pulseint0" value="1.0"></span></label>
+    <input type="range" id="slider-pulseint0" min="0" max="1.0" value="1.0" step="0.05">
+  </div>
+  <div class="control-group">
+    <label>Pulse Intensity 1 次: <span class="val-group"><input class="value" id="val-pulseint1" value="0.6"></span></label>
+    <input type="range" id="slider-pulseint1" min="0" max="1.0" value="0.6" step="0.05">
+  </div>
+  <div class="control-group">
+    <label>Pulse Intensity 2 二つ先: <span class="val-group"><input class="value" id="val-pulseint2" value="0.3"></span></label>
+    <input type="range" id="slider-pulseint2" min="0" max="1.0" value="0.3" step="0.05">
+  </div>
+  <div class="control-group">
+    <label>Pulse Fade Delay 戻り遅延: <span class="val-group"><input class="value" id="val-pulsedelay" value="0.05"><span class="unit">s</span></span></label>
+    <input type="range" id="slider-pulsedelay" min="0" max="1.0" value="0.05" step="0.01">
+  </div>
+  <div class="control-group">
+    <label>Pulse Fade Duration 戻り時間: <span class="val-group"><input class="value" id="val-pulsedur" value="0.4"><span class="unit">s</span></span></label>
+    <input type="range" id="slider-pulsedur" min="0.05" max="3.0" value="0.4" step="0.05">
+  </div>
 </div>
 
 <script>
@@ -353,6 +377,12 @@ const morphConfig = {
   inkFadeDuration: 400,  // フェード所要時間（ms）
   inkFadeVariance: 0.1,  // delay/durationの揺らぎ（±秒）
   inkFadeColor: 'rgba(165, 165, 165, 0.6)', // 最終色（generatingと同じ）
+  // モーフパルス（再インク効果）
+  morphPulseRange: 3,
+  morphPulseIntensities: [1.0, 0.6, 0.3],
+  morphPulseFadeDelay: 50,
+  morphPulseFadeDuration: 400,
+  morphPulseFadeVariance: 0.05,
 };
 
 // Generate a polygon with N vertices
@@ -694,6 +724,9 @@ const sliderDefs = [
   { id: 'slider-inkdelay', valId: 'val-inkdelay', key: 'inkFadeDelay',    unit: 's',  isInt: false, multiply: 1000 },
   { id: 'slider-inkdur',   valId: 'val-inkdur',   key: 'inkFadeDuration', unit: 's', isInt: false, multiply: 1000 },
   { id: 'slider-inkvar',   valId: 'val-inkvar',   key: 'inkFadeVariance', unit: 's', isInt: false, prefix: '±' },
+  { id: 'slider-pulserange', valId: 'val-pulserange', key: 'morphPulseRange', unit: '', isInt: true },
+  { id: 'slider-pulsedelay', valId: 'val-pulsedelay', key: 'morphPulseFadeDelay', unit: 's', isInt: false, multiply: 1000 },
+  { id: 'slider-pulsedur',   valId: 'val-pulsedur',   key: 'morphPulseFadeDuration', unit: 's', isInt: false, multiply: 1000 },
 ];
 
 // 表示値を生成するヘルパー（数値のみ、単位はHTML側で別表示）
@@ -758,6 +791,26 @@ sliderDefs.forEach(def => {
   });
 
   // フォーカスで全選択
+  valEl.addEventListener('focus', () => valEl.select());
+});
+
+// Pulse Intensity スライダー（カスタムハンドラ）
+[0, 1, 2].forEach(i => {
+  const slider = document.getElementById(`slider-pulseint${i}`);
+  const valEl = document.getElementById(`val-pulseint${i}`);
+  slider.addEventListener('input', () => {
+    const v = parseFloat(slider.value);
+    valEl.value = v;
+    morphConfig.morphPulseIntensities[i] = v;
+  });
+  valEl.addEventListener('change', () => {
+    const num = parseFloat(valEl.value);
+    if (isNaN(num)) { valEl.value = morphConfig.morphPulseIntensities[i]; return; }
+    const clamped = Math.min(1, Math.max(0, num));
+    slider.value = clamped;
+    morphConfig.morphPulseIntensities[i] = clamped;
+    valEl.value = clamped;
+  });
   valEl.addEventListener('focus', () => valEl.select());
 });
 
@@ -1126,10 +1179,14 @@ let inkfadeRunning = false;
 let inkfadeCharSpans = []; // { el, birthTime, delay, duration } — 各文字の生まれた時刻＋個別揺らぎ
 let inkfadeMorphRunning = false;
 let inkfadeMorphRAF = null;
+let inkfadePulseItems = []; // { el, pulseTime, intensity, fadeDelay, fadeDuration }
+let inkfadePulseRunning = false;
 
 function inkfadeReset() {
   inkfadeRunning = false;
   inkfadeMorphRunning = false;
+  inkfadePulseItems = [];
+  inkfadePulseRunning = false;
   if (inkfadeMorphRAF) { cancelAnimationFrame(inkfadeMorphRAF); inkfadeMorphRAF = null; }
   inkfadeTextEl.innerHTML = '';
   inkfadeCharSpans = [];
@@ -1153,6 +1210,7 @@ function inkfadeFadeLoop(time) {
   if (!inkfadeRunning && inkfadeCharSpans.length === 0 && !inkfadeMorphRunning) return;
 
   for (const item of inkfadeCharSpans) {
+    if (item.el._morphPulse) continue;
     const age = time - item.birthTime;
 
     if (age < item.delay) {
@@ -1205,6 +1263,94 @@ async function inkfadeTypeText(text) {
 
     await new Promise(r => setTimeout(r, charDelay));
   }
+}
+
+// モーフパルス（Ink Fadeデモ用）
+function inkfadePulseRandomize(base) {
+  const v = morphConfig.morphPulseFadeVariance * 1000;
+  return Math.max(0, base + (Math.random() * 2 - 1) * v);
+}
+
+function inkfadePulseTrigger() {
+  // caret-test.htmlではchar spanはinkfadeTextElの子、caretは外側の兄弟
+  const range = morphConfig.morphPulseRange;
+  const intensities = morphConfig.morphPulseIntensities;
+  const spans = [];
+  let node = inkfadeTextEl.lastChild;
+  while (node && spans.length < range) {
+    if (node.nodeType === 1 && node.tagName === 'SPAN') {
+      spans.push(node);
+    }
+    node = node.previousSibling;
+  }
+
+  const now = performance.now();
+  for (let i = 0; i < spans.length; i++) {
+    const el = spans[i];
+    const intensity = i < intensities.length ? intensities[i] : intensities[intensities.length - 1];
+    const gray = Math.round(165 * (1 - intensity));
+    const alpha = 0.6 + 0.4 * intensity;
+    el.style.color = `rgba(${gray}, ${gray}, ${gray}, ${alpha})`;
+    el._morphPulse = true;
+
+    const existing = inkfadePulseItems.findIndex(item => item.el === el);
+    const entry = {
+      el,
+      pulseTime: now,
+      intensity,
+      fadeDelay: inkfadePulseRandomize(morphConfig.morphPulseFadeDelay),
+      fadeDuration: inkfadePulseRandomize(morphConfig.morphPulseFadeDuration),
+    };
+    if (existing >= 0) {
+      inkfadePulseItems[existing] = entry;
+    } else {
+      inkfadePulseItems.push(entry);
+    }
+  }
+
+  if (!inkfadePulseRunning && inkfadePulseItems.length > 0) {
+    inkfadePulseRunning = true;
+    requestAnimationFrame(inkfadePulseFadeLoop);
+  }
+}
+
+function inkfadePulseFadeLoop(time) {
+  if (inkfadePulseItems.length === 0) {
+    inkfadePulseRunning = false;
+    return;
+  }
+
+  let allDone = true;
+  for (const item of inkfadePulseItems) {
+    const age = time - item.pulseTime;
+    const { intensity, fadeDelay, fadeDuration } = item;
+    const pulseGray = Math.round(165 * (1 - intensity));
+    const pulseAlpha = 0.6 + 0.4 * intensity;
+    const targetGray = 165;
+    const targetAlpha = 0.6;
+
+    if (age < fadeDelay) {
+      item.el.style.color = `rgba(${pulseGray}, ${pulseGray}, ${pulseGray}, ${pulseAlpha})`;
+      allDone = false;
+    } else if (age < fadeDelay + fadeDuration) {
+      const t = (age - fadeDelay) / fadeDuration;
+      const r = Math.round(pulseGray + (targetGray - pulseGray) * t);
+      const a = pulseAlpha + (targetAlpha - pulseAlpha) * t;
+      item.el.style.color = `rgba(${r}, ${r}, ${r}, ${a})`;
+      allDone = false;
+    } else {
+      item.el.style.color = morphConfig.inkFadeColor;
+      item.el._morphPulse = false;
+    }
+  }
+
+  if (allDone) {
+    inkfadePulseItems = [];
+    inkfadePulseRunning = false;
+    return;
+  }
+
+  requestAnimationFrame(inkfadePulseFadeLoop);
 }
 
 // Ink Fade デモ用：バー → 多角形トランジション（キャレット要素をモーフ）
@@ -1297,6 +1443,7 @@ function inkfadeStartMorph() {
       if (rawT >= 1) {
         ifMorphPhase = 'hold';
         ifMorphHoldStart = time;
+        inkfadePulseTrigger();
         inkfadeCaret.style.clipPath = toClipPath(ifMorphCurrentShapeRaw);
         inkfadeCaret.style.transform = 'scale(1)';
       }

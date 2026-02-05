@@ -76,6 +76,77 @@ iPad展示用Webサイト
 - 親切なまとめ・要約
 - 操作説明の多用
 
+## ボタン遷移モーション仕様（v1.0.40〜）
+
+### 直列フロー
+
+ボタン状態遷移は**完全直列**で実行される：
+
+```
+idle → generating:
+  テキスト退場(EXIT) → ドレイン(黒→白) → テキスト出現(ENTER) → ゲージ増加 + タイプライター開始
+
+generating → idle:
+  テキスト退場(EXIT) → ドレイン(白→黒) → テキスト出現(ENTER)
+```
+
+テキスト生成（タイプライター）はボタンモーション完了後に開始する（`waitForButtonTransition()`）。
+
+### ドレインアニメーション
+
+- ゲージ（progress-fill）を100%→0%にスウィープして背景色を遷移させる
+- Duration: **680ms**
+- Easing: **ease-in-out**
+- `drainProgressBar()` — Promise返却、await可能
+
+### 白フラッシュ防止
+
+- idle→generating: `progress-fill` を先に100%にセット（黒維持）→ `.idle` 除去 → ドレインで白露出
+- generating→idle: `.idle` を先に追加（背景黒）→ `progress-fill` 100%確保 → ドレインでfill除去
+- **`updateButtonState()` の idle 遷移時に `resetProgressBar()` を呼ばない**（先にfillを0%にすると白が一瞬露出する）
+
+### テキスト退場・出現パラメータ
+
+- Slide Distance: 16px
+- Out Duration: 280ms / In Duration: 280ms
+- Stagger: 65ms（JA/ENのずらし）
+- Gap: 140ms（EXIT完了→ENTER開始の間）
+- Exit Direction: down / Enter Direction: up
+- Exit Order: EN先行 / Enter Order: JA先行
+
+### ボタン状態とCSS
+
+- `.action-button-container.idle` → 背景黒（`#000`）
+- `.action-button-container`（デフォルト/generating）→ 背景白（`#FFF`）
+- `.action-button` → テキスト白（`#FFF`）
+- `.action-button.generating` → テキストグレー（`rgba(165,165,165,0.6)`）
+- `.progress-fill` → 黒（`#000`）、width 0%〜100%でゲージ表現
+
+### 生成中ルールテキストのスタイル
+
+- `.rule-ja.generating` / `.rule-en.generating` → `color: rgba(165,165,165,0.6)`
+- `.rule-number.generating` → `color: #999`
+- `.caret.generating` → `background: #000`（常に黒）
+- インク侵食（Ink Fade）: 打った文字が黒→グレーにフェード（`inkFadeDelay: 100ms`, `inkFadeDuration: 300ms`）
+- ルール完了時に `.generating` クラス除去 → CSS transition で黒へフェード
+
+## ファイル構成
+
+- `index.html` — メインページ（iPad展示用）
+- `styles.css` — スタイルシート
+- `app.js` — メインアプリケーション（VERSION管理あり）
+- `button-motion-test.html` — ボタンモーション検証用（スタンドアロン、パラメータ調整UI付き）
+- `typewriter-test.html` — タイプライター検証用
+- `caret-test.html` — キャレット検証用
+
+## 開発メモ
+
+- ローカル確認: `python3 -m http.server 8000` → `http://localhost:8000`
+- デプロイ: GitHub Pages（main ブランチへ push で自動デプロイ）
+- テストHTMLはパラメータ調整→本番（app.js）に反映の流れで使う
+- テストHTMLのスタイルは本番（styles.css / index.html）と一致させること
+- ボタンテキスト色はCSSクラスで制御し、インラインの `style.color` で上書きしないこと
+
 ## TODO
 
 - [ ] iPadからスプレッドシートに現在のルール番号を送信する機能（Google Sheets API直接書き込み）

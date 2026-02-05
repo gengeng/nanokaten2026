@@ -292,15 +292,23 @@ async function typewriterLeftPanel(type, ja, en) {
     }
   }
 
-  // 日本語をタイプライター表示
+  // ハイライトspan作成
+  const jaHl = document.createElement('span');
+  jaHl.className = 'left-highlight';
+  jaEl.appendChild(jaHl);
+  const enHl = document.createElement('span');
+  enHl.className = 'left-highlight';
+  enEl.appendChild(enHl);
+
+  // 日本語をタイプライター表示（span内に追加）
   for (const char of ja) {
-    jaEl.appendChild(document.createTextNode(char));
+    jaHl.appendChild(document.createTextNode(char));
     await delay(getTypewriterDelay(char));
   }
 
-  // 英語をタイプライター表示
+  // 英語をタイプライター表示（span内に追加）
   for (const char of en) {
-    enEl.appendChild(document.createTextNode(char));
+    enHl.appendChild(document.createTextNode(char));
     await delay(getTypewriterDelayEn(char));
   }
 
@@ -309,6 +317,22 @@ async function typewriterLeftPanel(type, ja, en) {
   } else {
     handsCount++;
   }
+}
+
+// 左パネルハイライト解除
+function removeLeftPanelHighlights() {
+  const highlights = document.querySelectorAll('.left-highlight');
+  highlights.forEach(span => {
+    span.classList.add('hl-removing');
+    span.addEventListener('animationend', () => {
+      const parent = span.parentNode;
+      if (!parent) return;
+      while (span.firstChild) {
+        parent.insertBefore(span.firstChild, span);
+      }
+      parent.removeChild(span);
+    }, { once: true });
+  });
 }
 
 // ========================================
@@ -505,7 +529,7 @@ function reportStatus(status) {
 // 多角形モーフィング設定
 // ========================================
 const morphConfig = {
-  size: 32,
+  size: 24,
   verticesMin: 5,
   verticesMax: 7,
   morphDuration: 200,   // ms, ンぎゅ！の速さ
@@ -1249,6 +1273,9 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
     console.log('No more segments to display');
     return;
   }
+
+  // 前回のハイライトを解除
+  removeLeftPanelHighlights();
 
   // トリガー種別をログ送信
   reportStatus(trigger === 'auto' ? '自動更新' : '手動更新');
