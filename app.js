@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.45';
+const VERSION = '1.0.46';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -121,6 +121,7 @@ const elements = {
   actionButtonContainer: document.getElementById('action-button-container'),
   progressFill: document.getElementById('progress-fill'),
   scrollToBottom: document.getElementById('scroll-to-bottom'),
+  gameVersion: document.getElementById('game-version'),
 };
 
 // ========================================
@@ -174,7 +175,7 @@ async function loadRules() {
 
       return {
         num: cells[0]?.v || 0,           // A: num
-        // cells[1] = major (skip)
+        major: cells[1]?.v === true || cells[1]?.v === 'TRUE',  // B: major
         // cells[2] = ref (skip)
         ja: cells[3]?.v || '',            // D: ja
         en: cells[4]?.v || '',            // E: en
@@ -238,6 +239,7 @@ function prepareSegments(rules) {
         componentEn: i === 0 ? rule.componentEn : '',
         jankenJa: i === 0 ? rule.jankenJa : '',
         jankenEn: i === 0 ? rule.jankenEn : '',
+        major: i === 0 ? rule.major : false,
       });
     });
   });
@@ -250,6 +252,26 @@ function prepareSegments(rules) {
 let componentCount = 0;  // 表示済み内容物の数
 let handsCount = 0;      // 表示済みじゃんけんの手の数
 let leftPanelQueue = Promise.resolve();  // 左パネルタイプライターのキュー
+
+// 指定ルール番号までのバージョンを計算
+function calculateVersion(rules, upToNum) {
+  let major = 1;
+  let minor = 0;
+  for (const rule of rules) {
+    if (Number(rule.num) > Number(upToNum)) break;
+    if (rule.major) {
+      major++;
+      minor = 0;
+    } else {
+      minor++;
+    }
+  }
+  return { major, minor };
+}
+
+function updateVersionDisplay(major, minor) {
+  elements.gameVersion.textContent = `Version ${major}.${minor}`;
+}
 
 // 即時表示（初期表示用）
 function addComponentInstant(ja, en) {
@@ -1212,6 +1234,13 @@ function displayInitialRules() {
   // ページタイトル更新
   updatePageTitle();
 
+  // 表示済みルールまでのバージョンを計算
+  const lastDisplayedNum = state.segments[initialEndIndex]?.num;
+  if (lastDisplayedNum) {
+    const ver = calculateVersion(state.rules, lastDisplayedNum);
+    updateVersionDisplay(ver.major, ver.minor);
+  }
+
   console.log(`Initial display complete. Next segment index: ${state.currentSegmentIndex}`);
 }
 
@@ -1357,6 +1386,10 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
         queueLeftPanelTypewriter('hands', state.pendingHands.ja, state.pendingHands.en);
         state.pendingHands = null;
       }
+
+      // バージョン更新
+      const ver = calculateVersion(state.rules, seg.num);
+      updateVersionDisplay(ver.major, ver.minor);
     }
 
     state.currentSegmentIndex++;
