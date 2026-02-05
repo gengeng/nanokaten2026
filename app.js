@@ -25,6 +25,8 @@ const CONFIG = {
   gaugePauseDurationVariance: 0.3, // 停止時間ゆらぎ（±30%）
   gaugeWaveAmplitude: 0.015, // ゆらぎの振幅（±1.5%）
   gaugeWaveFrequency: 0.3,   // 波の周波数（Hz）
+  gaugeDrainDuration: 680,   // ゲージ100→0のドレイン時間（ms）
+  gaugeDrainEasing: 'ease-in-out', // ドレインのイージング
 
   // タイポ設定
   typoChance: 0.05,        // タイポ確率（0-1）
@@ -78,6 +80,8 @@ const state = {
   gaugePauseDurationVariance: CONFIG.gaugePauseDurationVariance,
   gaugeWaveAmplitude: CONFIG.gaugeWaveAmplitude,
   gaugeWaveFrequency: CONFIG.gaugeWaveFrequency,
+  gaugeDrainDuration: CONFIG.gaugeDrainDuration,
+  gaugeDrainEasing: CONFIG.gaugeDrainEasing,
   typoChance: CONFIG.typoChance,
   typoPause: CONFIG.typoPause,
   pauseNumToJa: CONFIG.pauseNumToJa,
@@ -1251,8 +1255,11 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
 
   state.isGenerating = true;
   state.isThinking = false;
-  updateButtonState();
+  updateButtonState();  // transitionButton('generating') を発火
   updatePageTitle();
+
+  // ボタンモーション完了を待ってからテキスト生成開始
+  await waitForButtonTransition();
 
   // ボタン押下時に最下部へスクロール＆自動スクロール有効化
   state.isAutoScroll = true;
@@ -1262,7 +1269,7 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   const { segments: segmentsToGenerate, totalChars } = calculateSegmentsToGenerate();
   console.log(`Total chars: ${totalChars}`);
 
-  // ゲージタイマー開始（1分で0→100%）
+  // ゲージタイマー開始（モーション完了後に増加開始）
   startGaugeTimer();
 
   // ●キャレットを｜に変化
@@ -1689,6 +1696,20 @@ function resetProgressBar() {
   elements.progressFill.style.width = '0%';
 }
 
+// ドレインアニメーション（Promise返却、await可能）
+function drainProgressBar() {
+  return new Promise(resolve => {
+    const drainMs = state.gaugeDrainDuration;
+    const easing = state.gaugeDrainEasing;
+    elements.progressFill.style.transition = `width ${drainMs}ms ${easing}`;
+    elements.progressFill.style.width = '0%';
+    setTimeout(() => {
+      elements.progressFill.style.transition = '';
+      resolve();
+    }, drainMs);
+  });
+}
+
 // 旧APIとの互換性（呼び出し箇所では何もしない）
 function updateProgressBar(progress) {
   // 文字進捗は無視（ゲージは時間基準）
@@ -1721,6 +1742,15 @@ const BUTTON_STATES = {
 let currentButtonState = 'idle';
 let buttonAnimating = false;
 let pendingButtonState = null; // アニメ中にリクエストされた次の状態
+let buttonTransitionResolve = null; // transitionButton完了通知用
+
+// ボタンモーション完了を待つ（generateUntilNextBreakpoint等で使用）
+function waitForButtonTransition() {
+  return new Promise(resolve => {
+    if (!buttonAnimating) { resolve(); return; }
+    buttonTransitionResolve = resolve;
+  });
+}
 
 // 簡易イージング
 const btnEasings = {
@@ -1778,6 +1808,7 @@ async function transitionButton(newStateName) {
   // ---- EXIT ----
   const exitFirst = buttonMotion.jaFirst ? btnJa : btnEn;
   const exitSecond = buttonMotion.jaFirst ? btnEn : btnJa;
+  const wasIdle = BUTTON_STATES[currentButtonState]?.isIdle;
 
   const exitP1 = btnAnimate(exitFirst, {
     toX: exitVec.x, toY: exitVec.y,
@@ -1807,8 +1838,29 @@ async function transitionButton(newStateName) {
     btnEn.textContent = toState.en;
   }
 
-  // クラス切り替え
-  if (toState.isIdle) {
+  // ---- クラス切り替え＋ドレイン（直列）----
+  if (wasIdle && !toState.isIdle) {
+    // idle → generating: fill=100%で黒を維持→.idle除去→ドレインで白を露出
+    elements.progressFill.style.transition = '';
+    elements.progressFill.style.width = '100%';
+    void elements.progressFill.offsetWidth;  // 強制リフロー
+    btnContainer.classList.remove('idle');
+    btnContainer.classList.add('generating');
+    button.classList.add('generating');
+    await drainProgressBar();
+  } else if (!wasIdle && toState.isIdle) {
+    // generating → idle: .idle先付けで背景黒→ドレインでfill除去
+    btnContainer.classList.add('idle');
+    btnContainer.classList.remove('generating');
+    button.classList.remove('generating');
+    // fillが100%でなければ100%にセット
+    if (parseFloat(elements.progressFill.style.width) < 100) {
+      elements.progressFill.style.transition = '';
+      elements.progressFill.style.width = '100%';
+      void elements.progressFill.offsetWidth;
+    }
+    await drainProgressBar();
+  } else if (toState.isIdle) {
     button.classList.remove('generating');
     btnContainer.classList.remove('generating');
     btnContainer.classList.add('idle');
@@ -1851,6 +1903,13 @@ async function transitionButton(newStateName) {
 
   currentButtonState = newStateName;
   buttonAnimating = false;
+
+  // 完了通知（waitForButtonTransition() の resolve）
+  if (buttonTransitionResolve) {
+    const r = buttonTransitionResolve;
+    buttonTransitionResolve = null;
+    r();
+  }
 
   // アニメ中に別のリクエストが来ていた場合、続けて処理
   if (pendingButtonState && pendingButtonState !== currentButtonState) {
