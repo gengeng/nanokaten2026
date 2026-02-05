@@ -1853,13 +1853,17 @@ async function transitionButton(newStateName) {
     btnContainer.classList.add('idle');
     btnContainer.classList.remove('generating');
     button.classList.remove('generating');
-    // fillが100%でなければ100%にセット
-    if (parseFloat(elements.progressFill.style.width) < 100) {
-      elements.progressFill.style.transition = '';
+    // fillが100%でなければ100%にセット（transitionなしで即座に）
+    elements.progressFill.style.transition = '';
+    const currentWidth = parseFloat(elements.progressFill.style.width) || 0;
+    if (currentWidth < 100) {
       elements.progressFill.style.width = '100%';
       void elements.progressFill.offsetWidth;
     }
     await drainProgressBar();
+    // ゲージ状態をクリーンアップ
+    textComplete = false;
+    lastGaugeProgress = 0;
   } else if (toState.isIdle) {
     button.classList.remove('generating');
     btnContainer.classList.remove('generating');
@@ -1993,7 +1997,9 @@ function updateButtonState() {
     targetState = 'generating';
   } else {
     targetState = 'idle';
-    resetProgressBar();
+    // resetProgressBarはここで呼ばない
+    // transitionButton内のドレインがfill 100%→0%を処理する
+    // 先にfillを0%にすると白い明滅が発生する
   }
 
   // アニメーション付き遷移
