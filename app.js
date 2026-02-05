@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.43';
+const VERSION = '1.0.44';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -262,22 +262,38 @@ function addComponentInstant(ja, en) {
   componentCount++;
 }
 
-function addHandInstant(ja, en) {
+function addHandInstant(ja, en, num) {
   if (handsCount > 0) {
     elements.handsJa.appendChild(document.createElement('br'));
     elements.handsEn.appendChild(document.createElement('br'));
   }
   elements.handsJa.appendChild(document.createTextNode(ja));
   elements.handsEn.appendChild(document.createTextNode(en));
+
+  // 上付きルール番号を追加
+  if (num) {
+    const jaSup = document.createElement('sup');
+    jaSup.className = 'rule-ref';
+    jaSup.dataset.num = num;
+    jaSup.textContent = `#${num}`;
+    elements.handsJa.appendChild(jaSup);
+
+    const enSup = document.createElement('sup');
+    enSup.className = 'rule-ref';
+    enSup.dataset.num = num;
+    enSup.textContent = `#${num}`;
+    elements.handsEn.appendChild(enSup);
+  }
+
   handsCount++;
 }
 
 // タイプライター表示（生成中用、キューで逐次実行）
-function queueLeftPanelTypewriter(type, ja, en) {
-  leftPanelQueue = leftPanelQueue.then(() => typewriterLeftPanel(type, ja, en));
+function queueLeftPanelTypewriter(type, ja, en, num) {
+  leftPanelQueue = leftPanelQueue.then(() => typewriterLeftPanel(type, ja, en, num));
 }
 
-async function typewriterLeftPanel(type, ja, en) {
+async function typewriterLeftPanel(type, ja, en, num) {
   const isComponent = type === 'component';
   const jaEl = isComponent ? elements.componentsJa : elements.handsJa;
   const enEl = isComponent ? elements.componentsEn : elements.handsEn;
@@ -312,6 +328,21 @@ async function typewriterLeftPanel(type, ja, en) {
   for (const char of en) {
     enHl.appendChild(document.createTextNode(char));
     await delay(getTypewriterDelayEn(char));
+  }
+
+  // 手の場合のみ、タイプライター完了後に上付きルール番号を追加
+  if (!isComponent && num) {
+    const jaSup = document.createElement('sup');
+    jaSup.className = 'rule-ref';
+    jaSup.dataset.num = num;
+    jaSup.textContent = `#${num}`;
+    jaHl.appendChild(jaSup);
+
+    const enSup = document.createElement('sup');
+    enSup.className = 'rule-ref';
+    enSup.dataset.num = num;
+    enSup.textContent = `#${num}`;
+    enHl.appendChild(enSup);
   }
 
   if (isComponent) {
@@ -1181,7 +1212,7 @@ function displayInitialRules() {
         addComponentInstant(segment.componentJa, segment.componentEn);
       }
       if (segment.jankenJa) {
-        addHandInstant(segment.jankenJa, segment.jankenEn);
+        addHandInstant(segment.jankenJa, segment.jankenEn, segment.num);
       }
     }
 
@@ -1328,7 +1359,7 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
         state.pendingComponent = { ja: seg.componentJa, en: seg.componentEn };
       }
       if (seg.jankenJa) {
-        state.pendingHands = { ja: seg.jankenJa, en: seg.jankenEn };
+        state.pendingHands = { ja: seg.jankenJa, en: seg.jankenEn, num: seg.num };
       }
     }
 
@@ -1354,7 +1385,7 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
         state.pendingComponent = null;
       }
       if (state.pendingHands) {
-        queueLeftPanelTypewriter('hands', state.pendingHands.ja, state.pendingHands.en);
+        queueLeftPanelTypewriter('hands', state.pendingHands.ja, state.pendingHands.en, state.pendingHands.num);
         state.pendingHands = null;
       }
     }
@@ -2074,6 +2105,20 @@ function checkScrollPosition() {
   }
 }
 
+// 指定ルール番号へスクロール
+function scrollToRule(num) {
+  const target = elements.ruleList.querySelector(`.rule-number[data-num="${num}"]`);
+  if (target) {
+    const ruleItem = target.closest('.rule-item');
+    if (ruleItem) {
+      ruleItem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // 自動スクロールを無効化（手動で別の位置へ飛んだため）
+      state.isAutoScroll = false;
+      elements.scrollToBottom.classList.add('visible');
+    }
+  }
+}
+
 // ========================================
 // イベントリスナー
 // ========================================
@@ -2090,6 +2135,14 @@ function setupEventListeners() {
     state.isAutoScroll = true;
     scrollToBottom();
     elements.scrollToBottom.classList.remove('visible');
+  });
+
+  // 左カラムのルール番号タップでジャンプ
+  document.querySelector('.left-panel').addEventListener('click', (e) => {
+    const ref = e.target.closest('.rule-ref');
+    if (ref && ref.dataset.num) {
+      scrollToRule(ref.dataset.num);
+    }
   });
 
   // タイトル5回タップでデバッグモード有効化

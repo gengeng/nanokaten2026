@@ -186,6 +186,20 @@ body {
   to { clip-path: inset(0 0 0 100%); }
 }
 
+/* ルール番号上付き文字（左カラム手セクション） */
+.rule-ref {
+  font-size: 0.6em;
+  vertical-align: super;
+  color: rgba(0, 0, 0, 0.4);
+  margin-left: 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.left-highlight .rule-ref {
+  color: rgba(255, 255, 255, 0.6);
+}
+
 /* ========================================
    右カラム
    ======================================== */
