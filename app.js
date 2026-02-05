@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.34';
+const VERSION = '1.0.35';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -702,17 +702,10 @@ async function generateUntilNextBreakpoint() {
   transformCaretToBar();
 
   let charsDone = 0;
-  let isFirstRule = true;  // 最初のルールかどうか
 
   for (const seg of segmentsToGenerate) {
     // 新しいルール番号なら要素を作成
     if (seg.isFirst) {
-      // 最初のルールでなければ、ここで思考中状態に切り替え
-      if (!isFirstRule) {
-        onTextComplete();
-      }
-      isFirstRule = false;
-
       const { ruleElement, numberElement, jaElement, enElement } = createRuleElement(seg.num);
       state.currentRuleElement = ruleElement;
       state.currentNumberElement = numberElement;
@@ -1065,11 +1058,12 @@ function onTextComplete() {
   if (gaugePausedAt90) {
     // ゲージが90%で待っていた → 100%へ
     finishGauge();
-  } else {
-    // ゲージがまだ90%未満 → 思考中状態へ
+  } else if (gaugeStartTime) {
+    // ゲージがまだ動いている → 思考中状態へ
     state.isThinking = true;
     updateButtonState();
   }
+  // ゲージが既に完了済み（gaugeStartTime === null）なら何もしない
 }
 
 function resetProgressBar() {
