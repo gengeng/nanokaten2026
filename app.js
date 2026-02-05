@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.24';
+const VERSION = '1.0.25';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -16,7 +16,7 @@ const CONFIG = {
   // URLパラメータまたはリモート設定から取得
   startRule: parseInt(new URLSearchParams(window.location.search).get('startRule')) || 8,
   // GAS直接呼び出し（ステータス記録用）
-  statusGasUrl: 'https://script.google.com/macros/s/AKfycbztMkg9RFatDXuUNjSeOCwhUpyWZRGNOLLGXkxMAr8jkblqFTWR86tsSMMzAJj0I3nazw/exec',
+  statusGasUrl: 'https://script.google.com/macros/s/AKfycbyY_3VGTcdn-CWcT6QHK4bNQExC-tocBRkA0rtF_zzFA4Y4F_KOuOEE6p-ip8mBNWICmg/exec',
 
   // ゲージ設定
   gaugeDuration: 54000,    // 0→90%の時間（ms）
