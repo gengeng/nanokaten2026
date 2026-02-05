@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.48';
+const VERSION = '1.0.49';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -297,16 +297,22 @@ function updateVersionDisplay(major, minor, animate = true) {
     if (oldChar === newChar) {
       container.appendChild(document.createTextNode(newChar));
     } else {
+      // 数値比較で方向を決定（増加→上へ、減少→下へ）
+      const oldNum = parseInt(oldChar);
+      const newNum = parseInt(newChar);
+      const goUp = isNaN(oldNum) || isNaN(newNum) || newNum >= oldNum;
+      const dir = goUp ? 'up' : 'down';
+
       // スライドアニメーション
       const wrapper = document.createElement('span');
       wrapper.className = 'ver-digit';
 
       const out = document.createElement('span');
-      out.className = 'ver-digit-out';
+      out.className = `ver-digit-out ver-${dir}`;
       out.textContent = oldChar;
 
       const inn = document.createElement('span');
-      inn.className = 'ver-digit-in';
+      inn.className = `ver-digit-in ver-${dir}`;
       inn.textContent = newChar;
 
       wrapper.appendChild(out);

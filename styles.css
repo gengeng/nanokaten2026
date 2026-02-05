@@ -101,7 +101,6 @@ body {
 
 .ver-digit-out {
   display: block;
-  animation: ver-slide-out 0.3s ease-in forwards;
 }
 
 .ver-digit-in {
@@ -109,15 +108,30 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  animation: ver-slide-in 0.3s ease-out forwards;
 }
 
-@keyframes ver-slide-out {
+/* 増加：古い数字が上へ出て、新しい数字が下から入る */
+.ver-digit-out.ver-up { animation: ver-out-up 0.3s ease-in forwards; }
+.ver-digit-in.ver-up  { animation: ver-in-up 0.3s ease-out forwards; }
+
+@keyframes ver-out-up {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-100%); opacity: 0; }
+}
+@keyframes ver-in-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* 減少：古い数字が下へ出て、新しい数字が上から入る */
+.ver-digit-out.ver-down { animation: ver-out-down 0.3s ease-in forwards; }
+.ver-digit-in.ver-down  { animation: ver-in-down 0.3s ease-out forwards; }
+
+@keyframes ver-out-down {
   from { transform: translateY(0); opacity: 1; }
   to { transform: translateY(100%); opacity: 0; }
 }
-
-@keyframes ver-slide-in {
+@keyframes ver-in-down {
   from { transform: translateY(-100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
