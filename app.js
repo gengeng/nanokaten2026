@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.44';
+const VERSION = '1.0.45';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -264,8 +264,8 @@ function addComponentInstant(ja, en) {
 
 function addHandInstant(ja, en) {
   if (handsCount > 0) {
-    elements.handsJa.appendChild(document.createElement('br'));
-    elements.handsEn.appendChild(document.createElement('br'));
+    elements.handsJa.appendChild(document.createTextNode(' / '));
+    elements.handsEn.appendChild(document.createTextNode(' / '));
   }
   elements.handsJa.appendChild(document.createTextNode(ja));
   elements.handsEn.appendChild(document.createTextNode(en));
@@ -289,8 +289,8 @@ async function typewriterLeftPanel(type, ja, en) {
       jaEl.appendChild(document.createTextNode(' / '));
       enEl.appendChild(document.createTextNode(' / '));
     } else {
-      jaEl.appendChild(document.createElement('br'));
-      enEl.appendChild(document.createElement('br'));
+      jaEl.appendChild(document.createTextNode(' / '));
+      enEl.appendChild(document.createTextNode(' / '));
     }
   }
 
