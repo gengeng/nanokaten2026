@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タイプライター表示パラメータ検証</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Noto Sans JP', system-ui, sans-serif;
+  background: #f5f5f5;
+  padding: 40px;
+  color: #000;
+}
+
+h1 { font-size: 20px; margin-bottom: 8px; }
+h2 { font-size: 16px; margin-top: 24px; margin-bottom: 12px; color: #666; }
+
+.demo-description {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+/* ========================================
+   プレビューエリア
+   ======================================== */
+.preview {
+  max-width: 800px;
+  margin: 0 auto 40px;
+  background: #fff;
+  border: 1px solid #000;
+  border-radius: 8px;
+  padding: 40px;
+  min-height: 200px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: rgba(165, 165, 165, 0.6);
+}
+
+.preview .rule-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #999;
+  margin-right: 24px;
+}
+
+.preview .rule-ja {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.preview .rule-en {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  display: block;
+  margin-top: 8px;
+}
+
+.preview .caret {
+  display: inline-block;
+  width: 4px;
+  height: 1em;
+  background: #000;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+
+/* インク侵食で黒→グレーにフェードする文字 */
+.preview span[style*="color"] {
+  transition: none;
+}
+
+/* ========================================
+   コントロール
+   ======================================== */
+.controls {
+  max-width: 800px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.control-row label {
+  font-size: 13px;
+  min-width: 240px;
+  color: #333;
+}
+
+.control-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #ddd;
+  border-radius: 2px;
+}
+
+.control-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #000;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.control-row .val-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 80px;
+  justify-content: flex-end;
+}
+.control-row .val {
+  font-size: 13px;
+  font-weight: 600;
+  width: 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 3px;
+  outline: none;
+  font-family: inherit;
+  -moz-appearance: textfield;
+}
+.control-row .val:hover {
+  border-color: #ccc;
+}
+.control-row .val:focus {
+  border-color: #000;
+  background: #fff;
+}
+.control-row .val::-webkit-inner-spin-button,
+.control-row .val::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.control-row .unit {
+  font-size: 11px;
+  color: #999;
+  min-width: 24px;
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 8px;
+}
+
+.buttons-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.buttons-row button {
+  font-size: 13px;
+  padding: 8px 20px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.buttons-row button:hover {
+  background: #f0f0f0;
+}
+
+.buttons-row button.active {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+.status-bar {
+  max-width: 800px;
+  margin: 0 auto 16px;
+  font-size: 13px;
+  color: #999;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.status-bar .current {
+  font-weight: 700;
+  color: #000;
+}
+</style>
+</head>
+<body>
+
+<h1>タイプライター表示パラメータ検証</h1>
+<p class="demo-description">
+  テキスト出現速度、タイポ、句読点停止、切り替え停止、ランダム幅、インク侵食（黒→グレー）を調整するテストページ。<br>
+  本番app.jsと同じパラメータ構成。変更はExportでJSONコピー → 本番のImportで反映可能。
+</p>
+
+<div class="status-bar">
+  <span>状態:</span>
+  <span class="current" id="status">停止中</span>
+</div>
+
+<div class="preview" id="preview">
+  <!-- テキストがここにタイプされる -->
+</div>
+
+<div class="controls">
+  <div class="buttons-row">
+    <button id="btn-start">▶ 開始</button>
+    <button id="btn-stop">■ 停止</button>
+    <button id="btn-reset">↺ リセット</button>
+    <span id="elapsed-time" style="font-size:13px;font-weight:600;color:#999;font-variant-numeric:tabular-nums;margin-left:auto;">0:00</span>
+  </div>
+
+  <div class="section-title">基本設定</div>
+
+  <div class="control-row">
+    <label>Speed（文字速度）:</label>
+    <input type="range" id="s-speed" min="1" max="100" value="8">
+    <span class="val-group"><input class="val" id="v-speed" value="8"></span>
+  </div>
+
+  <div class="section-title">ゲージ設定</div>
+
+  <div class="control-row">
+    <label>Duration（ゲージ所要時間）:</label>
+    <input type="range" id="s-gauge-duration" min="1" max="120" value="54">
+    <span class="val-group"><input class="val" id="v-gauge-duration" value="54"><span class="unit">s</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Pause at（停止位置）:</label>
+    <input type="range" id="s-gauge-pause" min="50" max="99" value="90">
+    <span class="val-group"><input class="val" id="v-gauge-pause" value="90"><span class="unit">%</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Pause ±（停止位置ゆらぎ）:</label>
+    <input type="range" id="s-gauge-pause-var" min="0" max="20" value="5">
+    <span class="val-group"><input class="val" id="v-gauge-pause-var" value="5"><span class="unit">%</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Stop Time（停止時間）:</label>
+    <input type="range" id="s-gauge-stop" min="1" max="30" value="10">
+    <span class="val-group"><input class="val" id="v-gauge-stop" value="1000"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Stop ±（停止時間ゆらぎ）:</label>
+    <input type="range" id="s-gauge-stop-var" min="0" max="80" value="30">
+    <span class="val-group"><input class="val" id="v-gauge-stop-var" value="30"><span class="unit">%</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Wave Amp（速度ゆらぎ振幅）:</label>
+    <input type="range" id="s-wave-amp" min="0" max="50" value="15">
+    <span class="val-group"><input class="val" id="v-wave-amp" value="15"><span class="unit">‰</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Wave Freq（速度ゆらぎ周期）:</label>
+    <input type="range" id="s-wave-freq" min="1" max="10" value="3">
+    <span class="val-group"><input class="val" id="v-wave-freq" value="3"><span class="unit">Hz/10</span></span>
+  </div>
+
+  <div class="section-title">タイポ設定</div>
+
+  <div class="control-row">
+    <label>Typo %（タイポ確率）:</label>
+    <input type="range" id="s-typo-chance" min="0" max="20" value="5">
+    <span class="val-group"><input class="val" id="v-typo-chance" value="5"><span class="unit">%</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Typo Pause（タイポ後の間）:</label>
+    <input type="range" id="s-typo-pause" min="0.5" max="10" step="0.5" value="4">
+    <span class="val-group"><input class="val" id="v-typo-pause" value="4"><span class="unit">x</span></span>
+  </div>
+
+  <div class="section-title">切り替え停止</div>
+
+  <div class="control-row">
+    <label>#→日（番号→日本語の間）:</label>
+    <input type="range" id="s-pause-num-ja" min="0.5" max="15" step="0.5" value="6">
+    <span class="val-group"><input class="val" id="v-pause-num-ja" value="6"><span class="unit">x</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>日→英（日本語→英語の間）:</label>
+    <input type="range" id="s-pause-ja-en" min="0.5" max="15" step="0.5" value="7.5">
+    <span class="val-group"><input class="val" id="v-pause-ja-en" value="7.5"><span class="unit">x</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>英→#（英語→次の番号の間）:</label>
+    <input type="range" id="s-pause-en-num" min="1" max="50" step="1" value="24">
+    <span class="val-group"><input class="val" id="v-pause-en-num" value="24"><span class="unit">x</span></span>
+  </div>
+
+  <div class="section-title">句読点停止</div>
+
+  <div class="control-row">
+    <label>。（句点の間）:</label>
+    <input type="range" id="s-pause-kuten" min="1" max="15" step="0.5" value="9">
+    <span class="val-group"><input class="val" id="v-pause-kuten" value="9"><span class="unit">x</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>、（読点の間）:</label>
+    <input type="range" id="s-pause-touten" min="1" max="15" step="0.5" value="7.5">
+    <span class="val-group"><input class="val" id="v-pause-touten" value="7.5"><span class="unit">x</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>「（開き括弧の間）:</label>
+    <input type="range" id="s-pause-open-bracket" min="0.5" max="10" step="0.5" value="4">
+    <span class="val-group"><input class="val" id="v-pause-open-bracket" value="4"><span class="unit">x</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>」（閉じ括弧の間）:</label>
+    <input type="range" id="s-pause-close-bracket" min="0.5" max="10" step="0.5" value="4">
+    <span class="val-group"><input class="val" id="v-pause-close-bracket" value="4"><span class="unit">x</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>.（ピリオドの間）:</label>
+    <input type="range" id="s-pause-period" min="1" max="15" step="0.5" value="6.5">
+    <span class="val-group"><input class="val" id="v-pause-period" value="6.5"><span class="unit">x</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>,（カンマの間）:</label>
+    <input type="range" id="s-pause-comma" min="0.5" max="10" step="0.5" value="3">
+    <span class="val-group"><input class="val" id="v-pause-comma" value="3"><span class="unit">x</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>空白（スペースの間）:</label>
+    <input type="range" id="s-pause-space" min="0.1" max="2" step="0.1" value="0.5">
+    <span class="val-group"><input class="val" id="v-pause-space" value="0.5"><span class="unit">x</span></span>
+  </div>
+
+  <div class="section-title">ランダム幅</div>
+
+  <div class="control-row">
+    <label>日本語（速度ばらつき）:</label>
+    <input type="range" id="s-variance-ja" min="0" max="100" value="64">
+    <span class="val-group"><input class="val" id="v-variance-ja" value="±64"><span class="unit">%</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>英語（速度ばらつき）:</label>
+    <input type="range" id="s-variance-en" min="0" max="100" value="64">
+    <span class="val-group"><input class="val" id="v-variance-en" value="±64"><span class="unit">%</span></span>
+  </div>
+
+  <div class="section-title">インク侵食</div>
+
+  <div class="control-row">
+    <label>Fade Delay（フェード開始待ち）:</label>
+    <input type="range" id="s-ink-delay" min="0" max="2000" step="50" value="100">
+    <span class="val-group"><input class="val" id="v-ink-delay" value="100"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Fade Duration（フェード時間）:</label>
+    <input type="range" id="s-ink-duration" min="50" max="2000" step="50" value="300">
+    <span class="val-group"><input class="val" id="v-ink-duration" value="300"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Fade Variance（揺らぎ）:</label>
+    <input type="range" id="s-ink-variance" min="0" max="200" step="5" value="50">
+    <span class="val-group"><input class="val" id="v-ink-variance" value="±50"><span class="unit">ms</span></span>
+  </div>
+
+  <h2 style="margin:0;">Export / Import</h2>
+  <div class="buttons-row">
+    <button id="btn-export">Export JSON</button>
+    <button id="btn-import">Import JSON</button>
+  </div>
+  <textarea id="export-area" style="display:none;width:100%;background:#f9f9f9;border:1px solid #ddd;font-family:monospace;font-size:11px;padding:8px;border-radius:4px;resize:vertical;margin-top:8px;" rows="10"></textarea>
+</div>
+
+<script>
+// ========================================
+// パラメータ（app.jsのstateと同じキー構造）
+// ========================================
+const params = {
+  typewriterSpeed: 8,
+  // ゲージ
+  gaugeDuration: 54000,
+  gaugePausePoint: 0.90,
+  gaugePausePointVariance: 0.05,
+  gaugePauseDuration: 1000,
+  gaugePauseDurationVariance: 0.30,
+  gaugeWaveAmplitude: 0.015,
+  gaugeWaveFrequency: 0.3,
+  // タイポ
+  typoChance: 0.05,
+  typoPause: 4,
+  // 切り替え停止
+  pauseNumToJa: 6,
+  pauseJaToEn: 7.5,
+  pauseEnToNum: 24,
+  // 句読点停止
+  pauseKuten: 9,
+  pauseTouten: 7.5,
+  pauseOpenBracket: 4,
+  pauseCloseBracket: 4,
+  pausePeriod: 6.5,
+  pauseComma: 3,
+  pauseSpace: 0.5,
+  // ランダム幅
+  varianceJa: 0.64,
+  varianceEn: 0.64,
+  // インク侵食
+  inkFadeDelay: 100,
+  inkFadeDuration: 300,
+  inkFadeVariance: 0.05,
+  inkFadeColor: 'rgba(165, 165, 165, 0.6)',
+};
+
+// ========================================
+// スライダー定義
+// ========================================
+const sliderDefs = [
+  { s: 's-speed',              v: 'v-speed',              key: 'typewriterSpeed',         scale: 1,     unit: '',    fix: 0 },
+  { s: 's-gauge-duration',     v: 'v-gauge-duration',     key: 'gaugeDuration',           scale: 1000,  unit: 's',   fix: 0 },
+  { s: 's-gauge-pause',        v: 'v-gauge-pause',        key: 'gaugePausePoint',         scale: 0.01,  unit: '%',   fix: 0 },
+  { s: 's-gauge-pause-var',    v: 'v-gauge-pause-var',    key: 'gaugePausePointVariance',  scale: 0.01, unit: '%',   fix: 0 },
+  { s: 's-gauge-stop',         v: 'v-gauge-stop',         key: 'gaugePauseDuration',      scale: 100,   unit: 'ms',  fix: 0,  display: v => String(v * 100) },
+  { s: 's-gauge-stop-var',     v: 'v-gauge-stop-var',     key: 'gaugePauseDurationVariance', scale: 0.01, unit: '%', fix: 0 },
+  { s: 's-wave-amp',           v: 'v-wave-amp',           key: 'gaugeWaveAmplitude',      scale: 0.001, unit: '‰',   fix: 0 },
+  { s: 's-wave-freq',          v: 'v-wave-freq',          key: 'gaugeWaveFrequency',      scale: 0.1,   unit: 'Hz/10', fix: 0 },
+  { s: 's-typo-chance',        v: 'v-typo-chance',        key: 'typoChance',              scale: 0.01,  unit: '%',   fix: 0 },
+  { s: 's-typo-pause',         v: 'v-typo-pause',         key: 'typoPause',               scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-num-ja',       v: 'v-pause-num-ja',       key: 'pauseNumToJa',            scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-ja-en',        v: 'v-pause-ja-en',        key: 'pauseJaToEn',             scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-en-num',       v: 'v-pause-en-num',       key: 'pauseEnToNum',            scale: 1,     unit: 'x',   fix: 0 },
+  { s: 's-pause-kuten',        v: 'v-pause-kuten',        key: 'pauseKuten',              scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-touten',       v: 'v-pause-touten',       key: 'pauseTouten',             scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-open-bracket', v: 'v-pause-open-bracket', key: 'pauseOpenBracket',        scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-close-bracket',v: 'v-pause-close-bracket',key: 'pauseCloseBracket',       scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-period',       v: 'v-pause-period',       key: 'pausePeriod',             scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-comma',        v: 'v-pause-comma',        key: 'pauseComma',              scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-pause-space',        v: 'v-pause-space',        key: 'pauseSpace',              scale: 1,     unit: 'x',   fix: 1 },
+  { s: 's-variance-ja',        v: 'v-variance-ja',        key: 'varianceJa',              scale: 0.01,  unit: '',    fix: 0,  display: v => '±' + v },
+  { s: 's-variance-en',        v: 'v-variance-en',        key: 'varianceEn',              scale: 0.01,  unit: '',    fix: 0,  display: v => '±' + v },
+  { s: 's-ink-delay',          v: 'v-ink-delay',          key: 'inkFadeDelay',            scale: 1,     unit: 'ms',  fix: 0 },
+  { s: 's-ink-duration',       v: 'v-ink-duration',       key: 'inkFadeDuration',         scale: 1,     unit: 'ms',  fix: 0 },
+  { s: 's-ink-variance',       v: 'v-ink-variance',       key: 'inkFadeVariance',         scale: 0.001, unit: '',    fix: 0,  display: v => '±' + v },
+];
+
+// 表示値を生成するヘルパー（数値のみ、単位はHTML側で別表示）
+function formatVal(def, raw) {
+  if (def.display) return def.display(raw);
+  return def.fix > 0 ? raw.toFixed(def.fix) : String(raw);
+}
+
+// 表示値から数値を逆パースするヘルパー
+function parseValInput(def, text) {
+  const cleaned = text.replace(/[±]/g, '').trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
+}
+
+sliderDefs.forEach(def => {
+  const slider = document.getElementById(def.s);
+  const valEl = document.getElementById(def.v);
+  if (!slider || !valEl) return;
+
+  // スライダー → パラメータ＋表示更新
+  slider.addEventListener('input', () => {
+    const raw = parseFloat(slider.value);
+    params[def.key] = raw * def.scale;
+    valEl.value = formatVal(def, raw);
+  });
+
+  // テキスト入力 → スライダー＋パラメータ更新
+  valEl.addEventListener('change', () => {
+    const num = parseValInput(def, valEl.value);
+    if (num === null) {
+      // 無効な入力 → 現在値に戻す
+      const raw = params[def.key] / def.scale;
+      valEl.value = formatVal(def, raw);
+      return;
+    }
+    // スライダーの min/max でクランプ
+    const min = parseFloat(slider.min);
+    const max = parseFloat(slider.max);
+    const clamped = Math.min(max, Math.max(min, num));
+    slider.value = clamped;
+    params[def.key] = clamped * def.scale;
+    valEl.value = formatVal(def, clamped);
+  });
+
+  // フォーカスで全選択
+  valEl.addEventListener('focus', () => valEl.select());
+});
+
+// ========================================
+// サンプルテキスト
+// ========================================
+const SAMPLE_RULES = [
+  {
+    num: 264,
+    ja: 'じゃんけんにおいて、グーはチョキに勝ち、チョキはパーに勝ち、パーはグーに勝つ。ただし、第三者が「待った」と宣言した場合、その勝負は無効となり、再度じゃんけんを行わなければならない。',
+    en: 'In rock-paper-scissors, rock beats scissors, scissors beats paper, and paper beats rock. However, if a third party declares "wait," the match is void, and the game must be replayed.',
+  },
+  {
+    num: 265,
+    ja: 'すべてのプレイヤーは、自分の手番において、少なくとも一回はじゃんけんを試みなければならない。',
+    en: 'All players must attempt rock-paper-scissors at least once during their turn.',
+  },
+];
+
+// ========================================
+// タイプライター
+// ========================================
+const preview = document.getElementById('preview');
+const statusEl = document.getElementById('status');
+const elapsedEl = document.getElementById('elapsed-time');
+let running = false;
+let inkFadeSpans = [];
+
+// 経過時間カウンター
+let elapsedStart = 0;
+let elapsedAccum = 0; // 停止時の蓄積（ms）
+let elapsedTimer = null;
+
+function formatElapsed(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function startElapsed() {
+  elapsedStart = performance.now();
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    const now = performance.now();
+    elapsedEl.textContent = formatElapsed(elapsedAccum + (now - elapsedStart));
+    elapsedEl.style.color = '#000';
+  }, 200);
+}
+
+function stopElapsed() {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+  elapsedAccum += performance.now() - elapsedStart;
+  elapsedEl.textContent = formatElapsed(elapsedAccum);
+  elapsedEl.style.color = '#999';
+}
+
+function resetElapsed() {
+  if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+  elapsedAccum = 0;
+  elapsedEl.textContent = '0:00';
+  elapsedEl.style.color = '#999';
+}
+
+function getBaseDelay() {
+  const speed = params.typewriterSpeed;
+  const normalizedSpeed = Math.pow(speed / 100, 2.2);
+  return Math.max(10, 400 - normalizedSpeed * 390);
+}
+
+function getDelay(isJa) {
+  const base = getBaseDelay();
+  const variance = isJa ? params.varianceJa : params.varianceEn;
+  const randomFactor = 1 + (Math.random() * 2 - 1) * variance;
+  return Math.max(5, base * randomFactor);
+}
+
+function getPunctuationMultiplier(char) {
+  if ('。．' .includes(char)) return params.pauseKuten;
+  if ('、，' .includes(char)) return params.pauseTouten;
+  if ('「『' .includes(char)) return params.pauseOpenBracket;
+  if ('」』' .includes(char)) return params.pauseCloseBracket;
+  if (char === '.') return params.pausePeriod;
+  if (char === ',') return params.pauseComma;
+  if (char === ' ') return params.pauseSpace;
+  return 1;
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// インク侵食ループ
+function inkFadeLoop(time) {
+  if (inkFadeSpans.length === 0 && !running) return;
+  let allDone = true;
+  for (const item of inkFadeSpans) {
+    const age = time - item.birthTime;
+    if (age < item.delay) {
+      item.el.style.color = '#000';
+      allDone = false;
+    } else if (age < item.delay + item.duration) {
+      const t = (age - item.delay) / item.duration;
+      const r = Math.round(165 * t);
+      const a = 1 - 0.4 * t;
+      item.el.style.color = `rgba(${r}, ${r}, ${r}, ${a})`;
+      allDone = false;
+    } else {
+      item.el.style.color = params.inkFadeColor;
+    }
+  }
+  if (!allDone || running) {
+    requestAnimationFrame(inkFadeLoop);
+  }
+}
+
+function inkFadeRandomize(base) {
+  const v = params.inkFadeVariance * 1000;
+  return Math.max(0, base + (Math.random() * 2 - 1) * v);
+}
+
+async function typeText(container, text, isJa, caret) {
+  for (let i = 0; i < text.length; i++) {
+    if (!running) break;
+
+    const char = text[i];
+
+    // タイポ
+    if (params.typoChance > 0 && Math.random() < params.typoChance && char !== ' ') {
+      const typoChars = isJa ? 'あいうえおかきくけこ' : 'abcdefghijklmnop';
+      const typoChar = typoChars[Math.floor(Math.random() * typoChars.length)];
+      const typoSpan = document.createElement('span');
+      typoSpan.textContent = typoChar;
+      typoSpan.style.color = '#000';
+      caret.parentNode.insertBefore(typoSpan, caret);
+      inkFadeSpans.push({
+        el: typoSpan, birthTime: performance.now(),
+        delay: inkFadeRandomize(params.inkFadeDelay),
+        duration: inkFadeRandomize(params.inkFadeDuration),
+      });
+      await wait(getDelay(isJa));
+      if (!running) break;
+      // 消す
+      typoSpan.remove();
+      await wait(getDelay(isJa) * params.typoPause);
+      if (!running) break;
+    }
+
+    const span = document.createElement('span');
+    span.textContent = char;
+    span.style.color = '#000';
+    caret.parentNode.insertBefore(span, caret);
+
+    inkFadeSpans.push({
+      el: span, birthTime: performance.now(),
+      delay: inkFadeRandomize(params.inkFadeDelay),
+      duration: inkFadeRandomize(params.inkFadeDuration),
+    });
+
+    const mult = getPunctuationMultiplier(char);
+    await wait(getDelay(isJa) * mult);
+  }
+}
+
+async function typeRule(rule) {
+  // 番号
+  const ruleDiv = document.createElement('div');
+  ruleDiv.style.marginBottom = '40px';
+
+  const numSpan = document.createElement('span');
+  numSpan.className = 'rule-number';
+  ruleDiv.appendChild(numSpan);
+
+  const jaSpan = document.createElement('span');
+  jaSpan.className = 'rule-ja';
+  ruleDiv.appendChild(jaSpan);
+
+  preview.appendChild(ruleDiv);
+
+  // 番号タイプ
+  const numCaret = document.createElement('span');
+  numCaret.className = 'caret';
+  numSpan.appendChild(numCaret);
+  await typeText(numSpan, '#' + rule.num, false, numCaret);
+  numCaret.remove();
+  if (!running) return;
+
+  // #→日 停止
+  await wait(getDelay(true) * params.pauseNumToJa);
+  if (!running) return;
+
+  // 日本語タイプ
+  const jaCaret = document.createElement('span');
+  jaCaret.className = 'caret';
+  jaSpan.appendChild(jaCaret);
+  await typeText(jaSpan, rule.ja, true, jaCaret);
+  jaCaret.remove();
+  if (!running) return;
+
+  // 日→英 停止
+  await wait(getDelay(false) * params.pauseJaToEn);
+  if (!running) return;
+
+  // 英語
+  const enSpan = document.createElement('span');
+  enSpan.className = 'rule-en';
+  ruleDiv.appendChild(enSpan);
+
+  const enCaret = document.createElement('span');
+  enCaret.className = 'caret';
+  enSpan.appendChild(enCaret);
+  await typeText(enSpan, rule.en, false, enCaret);
+  enCaret.remove();
+  if (!running) return;
+
+  // 英→# 停止（100ms * pauseEnToNum）
+  await wait(100 * params.pauseEnToNum);
+}
+
+async function startDemo() {
+  if (running) return;
+  running = true;
+  statusEl.textContent = '生成中';
+  preview.innerHTML = '';
+  inkFadeSpans = [];
+  resetElapsed();
+  startElapsed();
+  requestAnimationFrame(inkFadeLoop);
+
+  for (const rule of SAMPLE_RULES) {
+    if (!running) break;
+    await typeRule(rule);
+  }
+
+  running = false;
+  stopElapsed();
+  statusEl.textContent = '完了';
+}
+
+function stopDemo() {
+  running = false;
+  stopElapsed();
+  statusEl.textContent = '停止中';
+}
+
+function resetDemo() {
+  running = false;
+  preview.innerHTML = '';
+  inkFadeSpans = [];
+  resetElapsed();
+  statusEl.textContent = '停止中';
+}
+
+document.getElementById('btn-start').addEventListener('click', startDemo);
+document.getElementById('btn-stop').addEventListener('click', stopDemo);
+document.getElementById('btn-reset').addEventListener('click', resetDemo);
+
+// ========================================
+// Export / Import（app.js互換JSON）
+// ========================================
+const EXPORT_KEYS = [
+  'typewriterSpeed',
+  'gaugeDuration', 'gaugePausePoint', 'gaugePausePointVariance',
+  'gaugePauseDuration', 'gaugePauseDurationVariance',
+  'gaugeWaveAmplitude', 'gaugeWaveFrequency',
+  'typoChance', 'typoPause',
+  'pauseNumToJa', 'pauseJaToEn', 'pauseEnToNum',
+  'pauseKuten', 'pauseTouten', 'pauseOpenBracket', 'pauseCloseBracket',
+  'pausePeriod', 'pauseComma', 'pauseSpace',
+  'varianceJa', 'varianceEn',
+];
+
+const exportArea = document.getElementById('export-area');
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const obj = {};
+  EXPORT_KEYS.forEach(k => obj[k] = params[k]);
+  exportArea.value = JSON.stringify(obj, null, 2);
+  exportArea.style.display = 'block';
+  exportArea.select();
+});
+
+document.getElementById('btn-import').addEventListener('click', () => {
+  if (exportArea.style.display === 'none') {
+    exportArea.style.display = 'block';
+    exportArea.value = '';
+    exportArea.placeholder = 'Paste JSON here...';
+    exportArea.focus();
+  } else if (exportArea.value.trim()) {
+    try {
+      const obj = JSON.parse(exportArea.value);
+      EXPORT_KEYS.forEach(k => {
+        if (obj[k] !== undefined) params[k] = obj[k];
+      });
+      // スライダーUIを更新
+      sliderDefs.forEach(def => {
+        const slider = document.getElementById(def.s);
+        const valEl = document.getElementById(def.v);
+        if (!slider || !valEl) return;
+        const raw = params[def.key] / def.scale;
+        slider.value = raw;
+        valEl.value = formatVal(def, raw);
+      });
+      exportArea.style.display = 'none';
+      exportArea.value = '';
+    } catch (e) {
+      alert('Invalid JSON');
+    }
+  }
+});
+</script>
+</body>
+</html>

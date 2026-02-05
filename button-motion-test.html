@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ボタンテキスト切り替えモーション検証</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', 'Noto Sans JP', system-ui, sans-serif;
+  background: #f5f5f5;
+  padding: 40px;
+  color: #000;
+}
+
+h1 { font-size: 20px; margin-bottom: 8px; }
+h2 { font-size: 16px; margin-top: 32px; margin-bottom: 12px; color: #666; }
+
+.demo-description {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+/* ========================================
+   ボタンコンテナ（本番と同じ構造）
+   ======================================== */
+.button-stage {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto 40px;
+}
+
+.action-button-container {
+  position: relative;
+  width: 100%;
+  height: 155px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #000;
+  overflow: hidden;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.action-button-container.idle {
+  background: #000;
+}
+
+.action-button-container.generating-state {
+  background: #000;
+}
+
+.progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.15);
+  width: 0%;
+  z-index: 0;
+}
+
+.action-button {
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 40px;
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.action-button .button-ja,
+.action-button .button-en {
+  display: block;
+  /* トランジション対象 */
+  transition: none; /* JSで制御 */
+}
+
+.action-button .button-ja {
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.action-button .button-en {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* グレー文字（生成中） */
+.action-button.generating .button-ja,
+.action-button.generating .button-en {
+  color: rgba(165, 165, 165, 0.6);
+}
+
+/* カウントダウン：tabular-numsで数字幅固定 */
+.action-button .button-ja .countdown-time,
+.action-button .button-en .countdown-time {
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  text-align: center;
+  min-width: 3.5em;
+}
+
+/* ========================================
+   コントロール
+   ======================================== */
+.controls {
+  max-width: 800px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.control-row label {
+  font-size: 13px;
+  min-width: 200px;
+  color: #333;
+}
+
+.control-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #ddd;
+  border-radius: 2px;
+}
+
+.control-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #000;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.control-row .val-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 80px;
+  justify-content: flex-end;
+}
+.control-row .val {
+  font-size: 13px;
+  font-weight: 600;
+  width: 52px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: 3px;
+  outline: none;
+  font-family: inherit;
+  -moz-appearance: textfield;
+}
+.control-row .val:hover {
+  border-color: #ccc;
+}
+.control-row .val:focus {
+  border-color: #000;
+  background: #fff;
+}
+.control-row .val::-webkit-inner-spin-button,
+.control-row .val::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.control-row .unit {
+  font-size: 11px;
+  color: #999;
+  min-width: 20px;
+}
+
+.buttons-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.buttons-row button {
+  font-size: 13px;
+  padding: 8px 20px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.buttons-row button:hover {
+  background: #f0f0f0;
+}
+
+.buttons-row button.active {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+/* ========================================
+   状態表示
+   ======================================== */
+.state-indicator {
+  max-width: 800px;
+  margin: 0 auto 16px;
+  font-size: 13px;
+  color: #999;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.state-indicator .current-state {
+  font-weight: 700;
+  color: #000;
+  font-size: 15px;
+}
+</style>
+</head>
+<body>
+
+<h1>ボタンテキスト切り替えモーション検証</h1>
+<p class="demo-description">
+  状態切り替え時のテキストアニメーション。JA/EN順序・方向・ゲージ・カウントダウンを調整可能。
+</p>
+
+<div class="state-indicator">
+  <span>現在の状態:</span>
+  <span class="current-state" id="current-state">待機中（idle）</span>
+</div>
+
+<div class="button-stage">
+  <div class="action-button-container idle" id="btn-container">
+    <div class="progress-fill" id="progress-fill"></div>
+    <button class="action-button" id="action-button">
+      <span class="button-ja" id="btn-ja">続きを生成</span>
+      <span class="button-en" id="btn-en">Continue Generating</span>
+    </button>
+  </div>
+</div>
+
+<div class="controls">
+  <h2 style="margin:0;">状態切り替え</h2>
+  <div class="buttons-row" id="state-buttons">
+    <button class="active" data-state="idle">待機中 idle</button>
+    <button data-state="countdown">カウントダウン countdown</button>
+    <button data-state="generating">生成中 generating</button>
+    <button data-state="thinking">思考中 thinking</button>
+  </div>
+
+  <h2 style="margin:0;">モーションパラメータ</h2>
+
+  <div class="control-row">
+    <label>Slide Distance スライド距離:</label>
+    <input type="range" id="slider-distance" min="4" max="40" step="1" value="16">
+    <span class="val-group"><input class="val" id="val-distance" value="16"><span class="unit">px</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Out Duration 退場時間:</label>
+    <input type="range" id="slider-out-duration" min="50" max="600" step="10" value="320">
+    <span class="val-group"><input class="val" id="val-out-duration" value="320"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>In Duration 登場時間:</label>
+    <input type="range" id="slider-in-duration" min="50" max="600" step="10" value="320">
+    <span class="val-group"><input class="val" id="val-in-duration" value="320"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Stagger ずらし:</label>
+    <input type="range" id="slider-stagger" min="0" max="200" step="5" value="80">
+    <span class="val-group"><input class="val" id="val-stagger" value="80"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Gap OUT→IN 退場→登場の間:</label>
+    <input type="range" id="slider-gap" min="0" max="300" step="10" value="140">
+    <span class="val-group"><input class="val" id="val-gap" value="140"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Out Easing 退場カーブ:</label>
+    <select id="select-out-easing" style="flex:1; font-size:13px; padding:4px;">
+      <option value="ease-in" selected>ease-in（加速して消える）</option>
+      <option value="ease-out">ease-out（減速して消える）</option>
+      <option value="ease-in-out">ease-in-out</option>
+      <option value="linear">linear</option>
+    </select>
+  </div>
+
+  <div class="control-row">
+    <label>In Easing 登場カーブ:</label>
+    <select id="select-in-easing" style="flex:1; font-size:13px; padding:4px;">
+      <option value="ease-out" selected>ease-out（減速して現れる）</option>
+      <option value="ease-in">ease-in（加速して現れる）</option>
+      <option value="ease-in-out">ease-in-out</option>
+      <option value="linear">linear</option>
+      <option value="back-out">back-out（少しオーバーシュート）</option>
+    </select>
+  </div>
+
+  <div class="control-row">
+    <label>Color Transition 色変化:</label>
+    <select id="select-color-mode" style="flex:1; font-size:13px; padding:4px;">
+      <option value="with-motion" selected>モーションと同時に色変化</option>
+      <option value="after-in">登場後にじわっと色変化</option>
+      <option value="none">色変化なし（即座に切替）</option>
+    </select>
+  </div>
+
+  <div class="control-row">
+    <label>Exit Direction 退場方向:</label>
+    <div style="flex:1; display:flex; gap:4px;" id="exit-dir-buttons">
+      <button data-dir="up" style="flex:1;padding:6px;font-size:12px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">↑ up</button>
+      <button data-dir="down" class="active" style="flex:1;padding:6px;font-size:12px;border:1px solid #000;background:#000;color:#fff;cursor:pointer;border-radius:3px;">↓ down</button>
+      <button data-dir="left" style="flex:1;padding:6px;font-size:12px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">← left</button>
+      <button data-dir="right" style="flex:1;padding:6px;font-size:12px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">→ right</button>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <label>Enter Direction 登場方向:</label>
+    <div style="flex:1; display:flex; gap:4px;" id="enter-dir-buttons">
+      <button data-dir="up" class="active" style="flex:1;padding:6px;font-size:12px;border:1px solid #000;background:#000;color:#fff;cursor:pointer;border-radius:3px;">↑ up</button>
+      <button data-dir="down" style="flex:1;padding:6px;font-size:12px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">↓ down</button>
+      <button data-dir="left" style="flex:1;padding:6px;font-size:12px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">← left</button>
+      <button data-dir="right" style="flex:1;padding:6px;font-size:12px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">→ right</button>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <label>Exit Order 退場順序（登場は常にJA先行）:</label>
+    <div style="flex:1; display:flex; gap:4px;" id="order-buttons">
+      <button data-order="ja-first" style="flex:1;padding:6px;font-size:12px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">JA先行</button>
+      <button data-order="en-first" class="active" style="flex:1;padding:6px;font-size:12px;border:1px solid #000;background:#000;color:#fff;cursor:pointer;border-radius:3px;">EN先行</button>
+    </div>
+  </div>
+
+  <h2 style="margin:0;">ゲージパラメータ</h2>
+
+  <div class="control-row">
+    <label>Gauge Direction ゲージ方向:</label>
+    <div style="flex:1; display:flex; gap:4px;" id="gauge-dir-buttons">
+      <button data-gdir="ltr" class="active" style="flex:1;padding:6px;font-size:12px;border:1px solid #000;background:#000;color:#fff;cursor:pointer;border-radius:3px;">→ 左から右</button>
+      <button data-gdir="rtl" style="flex:1;padding:6px;font-size:12px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">← 右から左</button>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <label>Gauge Duration ゲージ時間:</label>
+    <input type="range" id="slider-gauge-duration" min="500" max="10000" step="100" value="3000">
+    <span class="val-group"><input class="val" id="val-gauge-duration" value="3000"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Gauge Easing ゲージカーブ:</label>
+    <select id="select-gauge-easing" style="flex:1; font-size:13px; padding:4px;">
+      <option value="linear">linear</option>
+      <option value="ease-in">ease-in</option>
+      <option value="ease-out" selected>ease-out</option>
+      <option value="ease-in-out">ease-in-out</option>
+    </select>
+  </div>
+
+  <div class="control-row">
+    <label>Reverse Duration 戻り時間:</label>
+    <input type="range" id="slider-gauge-reverse" min="100" max="2000" step="50" value="400">
+    <span class="val-group"><input class="val" id="val-gauge-reverse" value="400"><span class="unit">ms</span></span>
+  </div>
+
+  <div class="control-row">
+    <label>Reverse Easing 戻りカーブ:</label>
+    <select id="select-gauge-reverse-easing" style="flex:1; font-size:13px; padding:4px;">
+      <option value="linear">linear</option>
+      <option value="ease-in" selected>ease-in</option>
+      <option value="ease-out">ease-out</option>
+      <option value="ease-in-out">ease-in-out</option>
+    </select>
+  </div>
+
+  <div class="buttons-row">
+    <button id="btn-gauge-demo">▶ ゲージデモ（増える→戻る）</button>
+  </div>
+
+  <h2 style="margin:0;">自動ループ</h2>
+  <div class="buttons-row">
+    <button id="btn-auto-loop">▶ 自動ループ開始</button>
+    <button id="btn-replay">↺ 現在の遷移をリプレイ</button>
+  </div>
+</div>
+
+<script>
+// ========================================
+// 状態定義
+// ========================================
+const STATES = {
+  idle: {
+    ja: '続きを生成',
+    en: 'Continue Generating',
+    bgClass: 'idle',
+    textColor: '#FFFFFF',
+    countdown: false,
+  },
+  countdown: {
+    ja: '自動更新まであと{time}',
+    en: 'Auto-update in {time}',
+    bgClass: 'idle',
+    textColor: '#FFFFFF',
+    countdown: true,
+  },
+  generating: {
+    ja: 'ルール生成中...',
+    en: 'Generating Rules...',
+    bgClass: 'generating-state',
+    textColor: 'rgba(165, 165, 165, 0.6)',
+    countdown: false,
+  },
+  thinking: {
+    ja: '次のルールを思考中...',
+    en: 'Thinking...',
+    bgClass: 'generating-state',
+    textColor: 'rgba(165, 165, 165, 0.6)',
+    countdown: false,
+  },
+};
+
+let currentState = 'idle';
+let isAnimating = false;
+let autoLoopRunning = false;
+let autoLoopTimer = null;
+
+// ========================================
+// DOM
+// ========================================
+const container = document.getElementById('btn-container');
+const btnJa = document.getElementById('btn-ja');
+const btnEn = document.getElementById('btn-en');
+const progressFill = document.getElementById('progress-fill');
+const stateIndicator = document.getElementById('current-state');
+
+// ========================================
+// パラメータ
+// ========================================
+const motionConfig = {
+  distance: 16,
+  outDuration: 320,
+  inDuration: 320,
+  stagger: 80,
+  gap: 140,
+  outEasing: 'ease-in',
+  inEasing: 'ease-out',
+  colorMode: 'with-motion',
+  exitDirection: 'down',   // 退場方向: up, down, left, right
+  enterDirection: 'up',    // 登場方向: up, down, left, right
+  jaFirst: false,          // 退場順序: true=JA→EN, false=EN→JA（登場は常にJA先行）
+  // ゲージ（プログレスバー）
+  gaugeDirection: 'ltr',   // ltr: 左→右に増える, rtl: 右→左に増える
+  gaugeDuration: 3000,     // ゲージが100%まで埋まる時間（ms）
+  gaugeEasing: 'ease-out', // ゲージのイージング
+  gaugeReverseDuration: 400, // ゲージが0%に戻る時間（ms）
+  gaugeReverseEasing: 'ease-in', // 戻りのイージング
+};
+
+// 方向 → { axis, sign } のマッピング
+// sign: 退場時にどちらに移動するか（+1 or -1）
+function directionToVector(dir, dist) {
+  switch (dir) {
+    case 'up':    return { x: 0, y: -dist };
+    case 'down':  return { x: 0, y: dist };
+    case 'left':  return { x: -dist, y: 0 };
+    case 'right': return { x: dist, y: 0 };
+    default:      return { x: 0, y: dist };
+  }
+}
+
+// Easing functions
+const easingFns = {
+  'linear': t => t,
+  'ease-in': t => t * t,
+  'ease-out': t => 1 - (1 - t) * (1 - t),
+  'ease-in-out': t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
+  'back-out': t => {
+    const c = 1.70158;
+    return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+  },
+};
+
+// ========================================
+// スライダー接続
+// ========================================
+const sliders = [
+  { id: 'slider-distance', valId: 'val-distance', key: 'distance', unit: 'px' },
+  { id: 'slider-out-duration', valId: 'val-out-duration', key: 'outDuration', unit: 'ms' },
+  { id: 'slider-in-duration', valId: 'val-in-duration', key: 'inDuration', unit: 'ms' },
+  { id: 'slider-stagger', valId: 'val-stagger', key: 'stagger', unit: 'ms' },
+  { id: 'slider-gap', valId: 'val-gap', key: 'gap', unit: 'ms' },
+  { id: 'slider-gauge-duration', valId: 'val-gauge-duration', key: 'gaugeDuration', unit: 'ms' },
+  { id: 'slider-gauge-reverse', valId: 'val-gauge-reverse', key: 'gaugeReverseDuration', unit: 'ms' },
+];
+
+sliders.forEach(({ id, valId, key, unit }) => {
+  const slider = document.getElementById(id);
+  const valEl = document.getElementById(valId);
+
+  // スライダー → パラメータ＋表示更新
+  slider.addEventListener('input', () => {
+    motionConfig[key] = parseFloat(slider.value);
+    valEl.value = slider.value;
+  });
+
+  // テキスト入力 → スライダー＋パラメータ更新
+  valEl.addEventListener('change', () => {
+    const num = parseFloat(valEl.value);
+    if (isNaN(num)) {
+      valEl.value = slider.value;
+      return;
+    }
+    const min = parseFloat(slider.min);
+    const max = parseFloat(slider.max);
+    const clamped = Math.min(max, Math.max(min, num));
+    slider.value = clamped;
+    motionConfig[key] = clamped;
+    valEl.value = clamped;
+  });
+
+  // フォーカスで全選択
+  valEl.addEventListener('focus', () => valEl.select());
+});
+
+document.getElementById('select-out-easing').addEventListener('change', e => {
+  motionConfig.outEasing = e.target.value;
+});
+document.getElementById('select-in-easing').addEventListener('change', e => {
+  motionConfig.inEasing = e.target.value;
+});
+document.getElementById('select-color-mode').addEventListener('change', e => {
+  motionConfig.colorMode = e.target.value;
+});
+
+// 方向ボタン
+function setupDirButtons(containerId, configKey) {
+  const container = document.getElementById(containerId);
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('button[data-dir]');
+    if (!btn) return;
+    motionConfig[configKey] = btn.dataset.dir;
+    // UI更新
+    container.querySelectorAll('button').forEach(b => {
+      const isActive = b === btn;
+      b.style.background = isActive ? '#000' : '#fff';
+      b.style.color = isActive ? '#fff' : '#000';
+      b.style.borderColor = isActive ? '#000' : '#ccc';
+      b.classList.toggle('active', isActive);
+    });
+  });
+}
+setupDirButtons('exit-dir-buttons', 'exitDirection');
+setupDirButtons('enter-dir-buttons', 'enterDirection');
+
+// JA/EN順序ボタン
+document.getElementById('order-buttons').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-order]');
+  if (!btn) return;
+  motionConfig.jaFirst = btn.dataset.order === 'ja-first';
+  document.getElementById('order-buttons').querySelectorAll('button').forEach(b => {
+    const isActive = b === btn;
+    b.style.background = isActive ? '#000' : '#fff';
+    b.style.color = isActive ? '#fff' : '#000';
+    b.style.borderColor = isActive ? '#000' : '#ccc';
+    b.classList.toggle('active', isActive);
+  });
+});
+
+// ゲージ方向ボタン
+document.getElementById('gauge-dir-buttons').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-gdir]');
+  if (!btn) return;
+  motionConfig.gaugeDirection = btn.dataset.gdir;
+  // UI更新
+  document.getElementById('gauge-dir-buttons').querySelectorAll('button').forEach(b => {
+    const isActive = b === btn;
+    b.style.background = isActive ? '#000' : '#fff';
+    b.style.color = isActive ? '#fff' : '#000';
+    b.style.borderColor = isActive ? '#000' : '#ccc';
+    b.classList.toggle('active', isActive);
+  });
+  // プログレスバーの方向を即時反映
+  updateGaugeDirection();
+});
+
+// ゲージイージングセレクト
+document.getElementById('select-gauge-easing').addEventListener('change', e => {
+  motionConfig.gaugeEasing = e.target.value;
+});
+document.getElementById('select-gauge-reverse-easing').addEventListener('change', e => {
+  motionConfig.gaugeReverseEasing = e.target.value;
+});
+
+// ゲージ方向の即時反映
+function updateGaugeDirection() {
+  if (motionConfig.gaugeDirection === 'rtl') {
+    progressFill.style.left = 'auto';
+    progressFill.style.right = '0';
+  } else {
+    progressFill.style.left = '0';
+    progressFill.style.right = 'auto';
+  }
+}
+
+// ========================================
+// テキストトランジション
+// ========================================
+
+// 色をパース（rgba文字列 or hex → {r,g,b,a}）
+function parseColor(str) {
+  if (str.startsWith('rgba')) {
+    const m = str.match(/rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)/);
+    if (m) return { r: +m[1], g: +m[2], b: +m[3], a: +m[4] };
+  }
+  if (str === '#FFFFFF' || str === '#fff') return { r: 255, g: 255, b: 255, a: 1 };
+  return { r: 255, g: 255, b: 255, a: 1 };
+}
+
+function lerpColor(from, to, t) {
+  return `rgba(${
+    Math.round(from.r + (to.r - from.r) * t)
+  }, ${
+    Math.round(from.g + (to.g - from.g) * t)
+  }, ${
+    Math.round(from.b + (to.b - from.b) * t)
+  }, ${
+    (from.a + (to.a - from.a) * t).toFixed(3)
+  })`;
+}
+
+function animateElement(el, params) {
+  return new Promise(resolve => {
+    const start = performance.now();
+    const {
+      fromX = 0, toX = 0, fromY = 0, toY = 0,
+      fromOpacity, toOpacity, duration, easing, fromColor, toColor,
+    } = params;
+    const easingFn = easingFns[easing] || easingFns['linear'];
+
+    function loop(now) {
+      const elapsed = now - start;
+      const rawT = Math.min(1, elapsed / duration);
+      const t = easingFn(rawT);
+
+      const x = fromX + (toX - fromX) * t;
+      const y = fromY + (toY - fromY) * t;
+      const opacity = fromOpacity + (toOpacity - fromOpacity) * t;
+
+      el.style.transform = `translate(${x}px, ${y}px)`;
+      el.style.opacity = opacity;
+
+      if (fromColor && toColor) {
+        el.style.color = lerpColor(fromColor, toColor, t);
+      }
+
+      if (rawT < 1) {
+        requestAnimationFrame(loop);
+      } else {
+        el.style.transform = `translate(${toX}px, ${toY}px)`;
+        el.style.opacity = toOpacity;
+        if (toColor) el.style.color = lerpColor(fromColor, toColor, 1);
+        resolve();
+      }
+    }
+
+    requestAnimationFrame(loop);
+  });
+}
+
+function wait(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function transitionToState(newState) {
+  if (isAnimating || newState === currentState) return;
+  isAnimating = true;
+
+  const fromStateData = STATES[currentState];
+  const toStateData = STATES[newState];
+
+  const fromColor = parseColor(fromStateData.textColor);
+  const toColor = parseColor(toStateData.textColor);
+  const transparentFrom = { ...fromColor, a: 0 };
+  const transparentTo = { ...toColor, a: 0 };
+
+  const dist = motionConfig.distance;
+  const colorMode = motionConfig.colorMode;
+  const exitVec = directionToVector(motionConfig.exitDirection, dist);
+  const enterVec = directionToVector(motionConfig.enterDirection, dist);
+
+  // ---- Phase 1: EXIT（指定方向にスライド＋フェードアウト）----
+  // jaFirst は退場のみ適用。登場は常にJA先行。
+  const exitFirstEl = motionConfig.jaFirst ? btnJa : btnEn;
+  const exitSecondEl = motionConfig.jaFirst ? btnEn : btnJa;
+
+  const exitFirst = animateElement(exitFirstEl, {
+    fromX: 0, fromY: 0,
+    toX: exitVec.x, toY: exitVec.y,
+    fromOpacity: 1,
+    toOpacity: 0,
+    duration: motionConfig.outDuration,
+    easing: motionConfig.outEasing,
+    fromColor: colorMode === 'with-motion' ? fromColor : null,
+    toColor: colorMode === 'with-motion' ? transparentFrom : null,
+  });
+
+  // 追従要素がstagger分遅れて退場
+  await wait(motionConfig.stagger);
+
+  const exitSecond = animateElement(exitSecondEl, {
+    fromX: 0, fromY: 0,
+    toX: exitVec.x, toY: exitVec.y,
+    fromOpacity: 1,
+    toOpacity: 0,
+    duration: motionConfig.outDuration,
+    easing: motionConfig.outEasing,
+    fromColor: colorMode === 'with-motion' ? fromColor : null,
+    toColor: colorMode === 'with-motion' ? transparentFrom : null,
+  });
+
+  await exitFirst;
+  await exitSecond;
+
+  // ---- テキスト差し替え ----
+  setCountdownText(btnJa, btnEn, toStateData);
+
+  // カウントダウン管理
+  if (toStateData.countdown) {
+    startCountdown();
+  } else {
+    stopCountdown();
+  }
+
+  // 背景クラス切り替え
+  container.classList.remove(fromStateData.bgClass);
+  container.classList.add(toStateData.bgClass);
+
+  // 初期位置：登場方向の逆側にオフセット＋透明
+  // enterVecは「登場元の位置」= 登場方向の逆（例: enterDirection=up → 上から来る → 初期位置は上）
+  btnJa.style.transform = `translate(${-enterVec.x}px, ${-enterVec.y}px)`;
+  btnJa.style.opacity = '0';
+  btnEn.style.transform = `translate(${-enterVec.x}px, ${-enterVec.y}px)`;
+  btnEn.style.opacity = '0';
+
+  if (colorMode === 'none') {
+    btnJa.style.color = toStateData.textColor;
+    btnEn.style.color = toStateData.textColor;
+  } else {
+    btnJa.style.color = lerpColor(transparentTo, transparentTo, 0);
+    btnEn.style.color = lerpColor(transparentTo, transparentTo, 0);
+  }
+
+  // ---- gap ----
+  await wait(motionConfig.gap);
+
+  // ---- Phase 2: ENTER（常にJA先行で登場）----
+  const enterFirst = animateElement(btnJa, {
+    fromX: -enterVec.x, fromY: -enterVec.y,
+    toX: 0, toY: 0,
+    fromOpacity: 0,
+    toOpacity: 1,
+    duration: motionConfig.inDuration,
+    easing: motionConfig.inEasing,
+    fromColor: colorMode === 'with-motion' ? transparentTo : null,
+    toColor: colorMode === 'with-motion' ? toColor : null,
+  });
+
+  await wait(motionConfig.stagger);
+
+  const enterSecond = animateElement(btnEn, {
+    fromX: -enterVec.x, fromY: -enterVec.y,
+    toX: 0, toY: 0,
+    fromOpacity: 0,
+    toOpacity: 1,
+    duration: motionConfig.inDuration,
+    easing: motionConfig.inEasing,
+    fromColor: colorMode === 'with-motion' ? transparentTo : null,
+    toColor: colorMode === 'with-motion' ? toColor : null,
+  });
+
+  await enterFirst;
+  await enterSecond;
+
+  // 色を最終状態に確定
+  if (colorMode === 'after-in') {
+    // 登場後にじわっと色変化
+    btnJa.style.transition = 'color 0.3s ease-out';
+    btnEn.style.transition = 'color 0.3s ease-out';
+    btnJa.style.color = toStateData.textColor;
+    btnEn.style.color = toStateData.textColor;
+    await wait(350);
+    btnJa.style.transition = '';
+    btnEn.style.transition = '';
+  } else {
+    btnJa.style.color = toStateData.textColor;
+    btnEn.style.color = toStateData.textColor;
+  }
+
+  // クリーンアップ
+  btnJa.style.transform = '';
+  btnJa.style.opacity = '';
+  btnEn.style.transform = '';
+  btnEn.style.opacity = '';
+
+  currentState = newState;
+  isAnimating = false;
+
+  // UI更新
+  updateStateButtons();
+  updateStateIndicator();
+}
+
+// ========================================
+// 状態ボタン
+// ========================================
+const stateButtonsContainer = document.getElementById('state-buttons');
+stateButtonsContainer.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-state]');
+  if (!btn) return;
+  const newState = btn.dataset.state;
+  transitionToState(newState);
+});
+
+function updateStateButtons() {
+  stateButtonsContainer.querySelectorAll('button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.state === currentState);
+  });
+}
+
+function updateStateIndicator() {
+  const labels = {
+    idle: '待機中（idle）',
+    countdown: 'カウントダウン（countdown）',
+    generating: '生成中（generating）',
+    thinking: '思考中（thinking）',
+  };
+  stateIndicator.textContent = labels[currentState];
+}
+
+// ========================================
+// 自動ループ
+// ========================================
+const stateOrder = ['idle', 'countdown', 'generating', 'thinking', 'idle'];
+
+document.getElementById('btn-auto-loop').addEventListener('click', function() {
+  if (autoLoopRunning) {
+    autoLoopRunning = false;
+    this.textContent = '▶ 自動ループ開始';
+    this.classList.remove('active');
+    if (autoLoopTimer) clearTimeout(autoLoopTimer);
+    return;
+  }
+
+  autoLoopRunning = true;
+  this.textContent = '■ 停止';
+  this.classList.add('active');
+
+  let step = stateOrder.indexOf(currentState);
+
+  async function loop() {
+    if (!autoLoopRunning) return;
+    step = (step + 1) % stateOrder.length;
+    const nextState = stateOrder[step];
+    countdownAutoReturn = true;
+    await transitionToState(nextState);
+    if (!autoLoopRunning) return;
+    // countdown状態はauto-returnでidleに戻るのを待つ
+    if (nextState === 'countdown') {
+      // countdownが自然にidleに戻るのを待つ（最大12秒）
+      await new Promise(resolve => {
+        const check = setInterval(() => {
+          if (currentState !== 'countdown' || !autoLoopRunning) {
+            clearInterval(check);
+            resolve();
+          }
+        }, 200);
+      });
+      // countdown→idleの遷移完了を待つ
+      await wait(500);
+      step = stateOrder.indexOf(currentState);
+    }
+    if (!autoLoopRunning) return;
+    autoLoopTimer = setTimeout(loop, 1500);
+  }
+
+  loop();
+});
+
+// リプレイ
+document.getElementById('btn-replay').addEventListener('click', async () => {
+  if (isAnimating) return;
+  // 現在の状態の次の状態に遷移してから戻す
+  const idx = stateOrder.indexOf(currentState);
+  const nextState = stateOrder[(idx + 1) % stateOrder.length];
+  await transitionToState(nextState);
+  await wait(800);
+  await transitionToState(currentState === nextState ? stateOrder[(idx + 2) % stateOrder.length] : currentState);
+});
+
+// コンテナクリックでも遷移
+container.addEventListener('click', () => {
+  if (isAnimating) return;
+  const idx = stateOrder.indexOf(currentState);
+  const nextState = stateOrder[(idx + 1) % stateOrder.length];
+  transitionToState(nextState);
+});
+
+// ========================================
+// ゲージアニメーション
+// ========================================
+let gaugeAnimId = null;
+
+function animateGauge(from, to, duration, easing) {
+  return new Promise(resolve => {
+    if (gaugeAnimId) cancelAnimationFrame(gaugeAnimId);
+    const easingFn = easingFns[easing] || easingFns['linear'];
+    const startTime = performance.now();
+    updateGaugeDirection();
+
+    function tick(now) {
+      const elapsed = now - startTime;
+      const rawT = Math.min(1, elapsed / duration);
+      const t = easingFn(rawT);
+      const val = from + (to - from) * t;
+      progressFill.style.width = val + '%';
+
+      if (rawT < 1) {
+        gaugeAnimId = requestAnimationFrame(tick);
+      } else {
+        progressFill.style.width = to + '%';
+        gaugeAnimId = null;
+        resolve();
+      }
+    }
+
+    gaugeAnimId = requestAnimationFrame(tick);
+  });
+}
+
+function stopGauge() {
+  if (gaugeAnimId) {
+    cancelAnimationFrame(gaugeAnimId);
+    gaugeAnimId = null;
+  }
+}
+
+// ========================================
+// カウントダウンタイマー
+// ========================================
+// 実際の動作: 自動更新まで残り2:00になったら10秒表示(2:00→1:50)、
+//             残り1:00で10秒表示(1:00→0:50)、残り0:10で10秒表示(0:10→0:00)
+// デモでは: countdown状態に入ったらdemoStartSecondsから10秒カウントダウンしてidle戻り
+let countdownInterval = null;
+let countdownSeconds = 120; // デモ開始秒数
+let countdownAutoReturn = true; // 10秒後にidleに自動で戻るか
+
+// デモ用：カウントダウンの開始秒数候補
+const COUNTDOWN_STARTS = [120, 60, 10]; // 2:00, 1:00, 0:10
+let countdownStartIdx = 0;
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function startCountdown() {
+  stopCountdown();
+  countdownSeconds = COUNTDOWN_STARTS[countdownStartIdx];
+  countdownStartIdx = (countdownStartIdx + 1) % COUNTDOWN_STARTS.length;
+  const endSeconds = countdownSeconds - 10; // 10秒間表示
+  updateCountdownDisplay();
+  countdownInterval = setInterval(() => {
+    countdownSeconds--;
+    updateCountdownDisplay();
+    if (countdownSeconds <= endSeconds || countdownSeconds <= 0) {
+      // 10秒経過 or 0に到達 → idle に戻る
+      stopCountdown();
+      if (countdownAutoReturn && currentState === 'countdown') {
+        transitionToState('idle');
+      }
+    }
+  }, 1000);
+}
+
+function stopCountdown() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+}
+
+function updateCountdownDisplay() {
+  const timeStr = formatTime(Math.max(0, countdownSeconds));
+  const jaTime = document.getElementById('countdown-ja-time');
+  const enTime = document.getElementById('countdown-en-time');
+  if (jaTime) jaTime.textContent = timeStr;
+  if (enTime) enTime.textContent = timeStr;
+}
+
+function setCountdownText(jaEl, enEl, toStateData) {
+  if (toStateData.countdown) {
+    const timeStr = formatTime(Math.max(0, countdownSeconds));
+    jaEl.innerHTML = toStateData.ja.replace('{time}',
+      `<span class="countdown-time" id="countdown-ja-time">${timeStr}</span>`);
+    enEl.innerHTML = toStateData.en.replace('{time}',
+      `<span class="countdown-time" id="countdown-en-time">${timeStr}</span>`);
+  } else {
+    jaEl.textContent = toStateData.ja;
+    enEl.textContent = toStateData.en;
+  }
+}
+
+// ゲージデモボタン
+document.getElementById('btn-gauge-demo').addEventListener('click', async () => {
+  stopGauge();
+  progressFill.style.width = '0%';
+  // 増える
+  await animateGauge(0, 100, motionConfig.gaugeDuration, motionConfig.gaugeEasing);
+  await wait(300);
+  // 戻る
+  await animateGauge(100, 0, motionConfig.gaugeReverseDuration, motionConfig.gaugeReverseEasing);
+});
+
+// ========================================
+// 初期状態
+// ========================================
+btnJa.style.color = STATES.idle.textColor;
+btnEn.style.color = STATES.idle.textColor;
+
+</script>
+</body>
+</html>

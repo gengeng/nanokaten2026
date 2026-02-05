@@ -93,10 +93,43 @@
   .control-group input[type="range"] {
     width: 100%;
   }
+  .control-group .val-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    justify-content: flex-end;
+  }
   .control-group .value {
     font-size: 11px;
     color: #999;
     text-align: right;
+    width: 48px;
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 1px 4px;
+    border-radius: 3px;
+    outline: none;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+  }
+  .control-group .value:hover {
+    border-color: #ccc;
+  }
+  .control-group .value:focus {
+    border-color: #000;
+    background: #fff;
+    color: #000;
+  }
+  .control-group .value::-webkit-inner-spin-button,
+  .control-group .value::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .control-group .unit {
+    font-size: 10px;
+    color: #bbb;
+    min-width: 18px;
   }
 
   .content { padding-bottom: 240px; }
@@ -206,39 +239,39 @@
 <!-- Controls -->
 <div class="controls">
   <div class="control-group">
-    <label>Size サイズ: <span class="value" id="val-size">32px</span></label>
+    <label>Size サイズ: <span class="val-group"><input class="value" id="val-size" value="32"><span class="unit">px</span></span></label>
     <input type="range" id="slider-size" min="8" max="40" value="32" step="1">
   </div>
   <div class="control-group">
-    <label>Vertices min 頂点数（最小）: <span class="value" id="val-vmin">5</span></label>
+    <label>Vertices min 頂点数（最小）: <span class="val-group"><input class="value" id="val-vmin" value="5"></span></label>
     <input type="range" id="slider-vmin" min="3" max="8" value="5" step="1">
   </div>
   <div class="control-group">
-    <label>Vertices max 頂点数（最大）: <span class="value" id="val-vmax">7</span></label>
+    <label>Vertices max 頂点数（最大）: <span class="val-group"><input class="value" id="val-vmax" value="7"></span></label>
     <input type="range" id="slider-vmax" min="3" max="12" value="7" step="1">
   </div>
   <div class="control-group">
-    <label>Morph ンぎゅの速さ: <span class="value" id="val-morph">0.2s</span></label>
+    <label>Morph ンぎゅの速さ: <span class="val-group"><input class="value" id="val-morph" value="0.2"><span class="unit">s</span></span></label>
     <input type="range" id="slider-morph" min="0.05" max="2.0" value="0.2" step="0.05">
   </div>
   <div class="control-group">
-    <label>Hold 溜めの長さ: <span class="value" id="val-hold">0.4s</span></label>
+    <label>Hold 溜めの長さ: <span class="val-group"><input class="value" id="val-hold" value="0.4"><span class="unit">s</span></span></label>
     <input type="range" id="slider-hold" min="0.0" max="4.0" value="0.4" step="0.1">
   </div>
   <div class="control-group">
-    <label>Irregularity 歪み: <span class="value" id="val-irreg">0.53</span></label>
+    <label>Irregularity 歪み: <span class="val-group"><input class="value" id="val-irreg" value="0.53"></span></label>
     <input type="range" id="slider-irreg" min="0" max="1.0" value="0.53" step="0.01">
   </div>
   <div class="control-group">
-    <label>Scale Pulse 膨らみ: <span class="value" id="val-scale">1</span></label>
+    <label>Scale Pulse 膨らみ: <span class="val-group"><input class="value" id="val-scale" value="1"></span></label>
     <input type="range" id="slider-scale" min="1.0" max="1.3" value="1.0" step="0.01">
   </div>
   <div class="control-group">
-    <label>Morph Rotation 変形時回転: <span class="value" id="val-rotate">0°</span></label>
+    <label>Morph Rotation 変形時回転: <span class="val-group"><input class="value" id="val-rotate" value="0"><span class="unit">°</span></span></label>
     <input type="range" id="slider-rotate" min="0" max="90" value="0" step="1">
   </div>
   <div class="control-group">
-    <label>Hold Rotation 待機中回転: <span class="value" id="val-holdrot">0°/s</span></label>
+    <label>Hold Rotation 待機中回転: <span class="val-group"><input class="value" id="val-holdrot" value="0"><span class="unit">°/s</span></span></label>
     <input type="range" id="slider-holdrot" min="0" max="180" value="0" step="1">
   </div>
   <div class="control-group">
@@ -255,7 +288,7 @@
     </select>
   </div>
   <div class="control-group">
-    <label>To Bar 縦棒化の速さ: <span class="value" id="val-tobar">0.1s</span></label>
+    <label>To Bar 縦棒化の速さ: <span class="val-group"><input class="value" id="val-tobar" value="0.1"><span class="unit">s</span></span></label>
     <input type="range" id="slider-tobar" min="0.05" max="2.0" value="0.1" step="0.05">
   </div>
   <div class="control-group">
@@ -272,23 +305,23 @@
     </select>
   </div>
   <div class="control-group">
-    <label>Bar Width 縦棒の幅: <span class="value" id="val-barw">14%</span></label>
+    <label>Bar Width 縦棒の幅: <span class="val-group"><input class="value" id="val-barw" value="14"><span class="unit">%</span></span></label>
     <input type="range" id="slider-barw" min="0.5" max="20" value="14" step="0.5">
   </div>
   <div class="control-group">
-    <label>Bar Height 縦棒の高さ: <span class="value" id="val-barh">100%</span></label>
+    <label>Bar Height 縦棒の高さ: <span class="val-group"><input class="value" id="val-barh" value="100"><span class="unit">%</span></span></label>
     <input type="range" id="slider-barh" min="10" max="100" value="100" step="5">
   </div>
   <div class="control-group">
-    <label>Ink Fade Delay 侵食開始: <span class="value" id="val-inkdelay">0.2s</span></label>
+    <label>Ink Fade Delay 侵食開始: <span class="val-group"><input class="value" id="val-inkdelay" value="0.2"><span class="unit">s</span></span></label>
     <input type="range" id="slider-inkdelay" min="0" max="10.0" value="0.2" step="0.1">
   </div>
   <div class="control-group">
-    <label>Ink Fade Duration 侵食時間: <span class="value" id="val-inkdur">0.4s</span></label>
+    <label>Ink Fade Duration 侵食時間: <span class="val-group"><input class="value" id="val-inkdur" value="0.4"><span class="unit">s</span></span></label>
     <input type="range" id="slider-inkdur" min="0.1" max="10.0" value="0.4" step="0.1">
   </div>
   <div class="control-group">
-    <label>Ink Fade Variance 揺らぎ: <span class="value" id="val-inkvar">±0.1s</span></label>
+    <label>Ink Fade Variance 揺らぎ: <span class="val-group"><input class="value" id="val-inkvar" value="±0.1"><span class="unit">s</span></span></label>
     <input type="range" id="slider-inkvar" min="0" max="2.0" value="0.1" step="0.01">
   </div>
 </div>
@@ -663,13 +696,19 @@ const sliderDefs = [
   { id: 'slider-inkvar',   valId: 'val-inkvar',   key: 'inkFadeVariance', unit: 's', isInt: false, prefix: '±' },
 ];
 
+// 表示値を生成するヘルパー（数値のみ、単位はHTML側で別表示）
+function formatSliderVal(def, raw) {
+  return (def.prefix || '') + raw;
+}
+
 sliderDefs.forEach(def => {
   const slider = document.getElementById(def.id);
   const valEl = document.getElementById(def.valId);
 
+  // スライダー → パラメータ＋表示更新
   slider.addEventListener('input', () => {
     const raw = def.isInt ? parseInt(slider.value) : parseFloat(slider.value);
-    valEl.textContent = (def.prefix || '') + slider.value + def.unit;
+    valEl.value = formatSliderVal(def, slider.value);
     morphConfig[def.key] = def.multiply ? raw * def.multiply : raw;
 
     // Update caret sizes
@@ -683,7 +722,7 @@ sliderDefs.forEach(def => {
       if (raw > parseInt(maxSlider.value)) {
         maxSlider.value = raw;
         morphConfig.verticesMax = raw;
-        document.getElementById('val-vmax').textContent = raw;
+        document.getElementById('val-vmax').value = raw;
       }
     }
     if (def.key === 'verticesMax') {
@@ -691,10 +730,35 @@ sliderDefs.forEach(def => {
       if (raw < parseInt(minSlider.value)) {
         minSlider.value = raw;
         morphConfig.verticesMin = raw;
-        document.getElementById('val-vmin').textContent = raw;
+        document.getElementById('val-vmin').value = raw;
       }
     }
   });
+
+  // テキスト入力 → スライダー＋パラメータ更新
+  valEl.addEventListener('change', () => {
+    const cleaned = valEl.value.replace(/[±]/g, '').trim();
+    const num = parseFloat(cleaned);
+    if (isNaN(num)) {
+      const currentRaw = def.multiply ? morphConfig[def.key] / def.multiply : morphConfig[def.key];
+      valEl.value = formatSliderVal(def, currentRaw);
+      return;
+    }
+    const min = parseFloat(slider.min);
+    const max = parseFloat(slider.max);
+    const clamped = Math.min(max, Math.max(min, num));
+    slider.value = clamped;
+    morphConfig[def.key] = def.multiply ? clamped * def.multiply : clamped;
+    valEl.value = formatSliderVal(def, clamped);
+
+    // Update caret sizes
+    if (def.key === 'size') {
+      document.documentElement.style.setProperty('--caret-size', clamped + 'px');
+    }
+  });
+
+  // フォーカスで全選択
+  valEl.addEventListener('focus', () => valEl.select());
 });
 
 // Easing select

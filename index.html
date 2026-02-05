@@ -82,7 +82,6 @@
       <p class="debug-version">v<span id="debug-version">0.0.0</span></p>
 
       <div class="debug-section">
-        <div class="debug-section-title">基本設定</div>
         <label>
           Speed（文字速度）: <span id="speed-value">8</span>
           <input type="range" id="speed-slider" min="1" max="100" value="8">
@@ -91,109 +90,9 @@
           Auto（自動更新間隔）: <span id="auto-generate-value">180</span>s
           <input type="range" id="auto-generate-slider" min="0" max="240" value="180">
         </label>
-      </div>
-
-      <div class="debug-section">
-        <div class="debug-section-title">ゲージ設定</div>
         <label>
           Duration（ゲージ所要時間）: <span id="gauge-duration-value">54</span>s
           <input type="range" id="gauge-duration-slider" min="1" max="120" value="54">
-        </label>
-        <label>
-          Pause at（停止位置）: <span id="gauge-pause-value">90</span>%
-          <input type="range" id="gauge-pause-slider" min="50" max="99" value="90">
-        </label>
-        <label>
-          Pause ±（停止位置ゆらぎ）: <span id="gauge-pause-variance-value">5</span>%
-          <input type="range" id="gauge-pause-variance-slider" min="0" max="20" value="5">
-        </label>
-        <label>
-          Stop Time（停止時間）: <span id="gauge-pause-duration-value">10</span>00ms
-          <input type="range" id="gauge-pause-duration-slider" min="1" max="30" value="10">
-        </label>
-        <label>
-          Stop ±（停止時間ゆらぎ）: <span id="gauge-pause-duration-variance-value">30</span>%
-          <input type="range" id="gauge-pause-duration-variance-slider" min="0" max="80" value="30">
-        </label>
-        <label>
-          Wave Amp（速度ゆらぎ振幅）: <span id="gauge-wave-amp-value">15</span>‰
-          <input type="range" id="gauge-wave-amp-slider" min="0" max="50" value="15">
-        </label>
-        <label>
-          Wave Freq（速度ゆらぎ周期）: <span id="gauge-wave-freq-value">3</span>Hz/10
-          <input type="range" id="gauge-wave-freq-slider" min="1" max="10" value="3">
-        </label>
-      </div>
-
-      <div class="debug-section">
-        <div class="debug-section-title">タイポ設定</div>
-        <label>
-          Typo %（タイポ確率）: <span id="typo-chance-value">5</span>
-          <input type="range" id="typo-chance-slider" min="0" max="20" value="5">
-        </label>
-        <label>
-          Typo Pause（タイポ後の間）: <span id="typo-pause-value">4</span>x
-          <input type="range" id="typo-pause-slider" min="0.5" max="10" step="0.5" value="4">
-        </label>
-      </div>
-
-      <div class="debug-section">
-        <div class="debug-section-title">切り替え停止</div>
-        <label>
-          #→日（番号→日本語の間）: <span id="pause-num-ja-value">6</span>x
-          <input type="range" id="pause-num-ja-slider" min="0.5" max="15" step="0.5" value="6">
-        </label>
-        <label>
-          日→英（日本語→英語の間）: <span id="pause-ja-en-value">7.5</span>x
-          <input type="range" id="pause-ja-en-slider" min="0.5" max="15" step="0.5" value="7.5">
-        </label>
-        <label>
-          英→#（英語→次の番号の間）: <span id="pause-en-num-value">24</span>
-          <input type="range" id="pause-en-num-slider" min="1" max="50" step="1" value="24">
-        </label>
-      </div>
-
-      <div class="debug-section">
-        <div class="debug-section-title">句読点停止</div>
-        <label>
-          。（句点の間）: <span id="pause-kuten-value">9</span>x
-          <input type="range" id="pause-kuten-slider" min="1" max="15" step="0.5" value="9">
-        </label>
-        <label>
-          、（読点の間）: <span id="pause-touten-value">7.5</span>x
-          <input type="range" id="pause-touten-slider" min="1" max="15" step="0.5" value="7.5">
-        </label>
-        <label>
-          「（開き括弧の間）: <span id="pause-open-bracket-value">4</span>x
-          <input type="range" id="pause-open-bracket-slider" min="0.5" max="10" step="0.5" value="4">
-        </label>
-        <label>
-          」（閉じ括弧の間）: <span id="pause-bracket-value">4</span>x
-          <input type="range" id="pause-bracket-slider" min="0.5" max="10" step="0.5" value="4">
-        </label>
-        <label>
-          .（ピリオドの間）: <span id="pause-period-value">6.5</span>x
-          <input type="range" id="pause-period-slider" min="1" max="15" step="0.5" value="6.5">
-        </label>
-        <label>
-          ,（カンマの間）: <span id="pause-comma-value">3</span>x
-          <input type="range" id="pause-comma-slider" min="0.5" max="10" step="0.5" value="3">
-        </label>
-        <label>
-          空白（スペースの間）: <span id="pause-space-value">0.5</span>x
-          <input type="range" id="pause-space-slider" min="0.1" max="2" step="0.1" value="0.5">
-        </label>
-      </div>
-
-      <div class="debug-section">
-        <div class="debug-section-title">ランダム幅</div>
-        <label>
-          日本語（速度ばらつき）: ±<span id="variance-ja-value">64</span>%
-          <input type="range" id="variance-ja-slider" min="0" max="100" value="64">
-        </label>
-        <label>
-          英語（速度ばらつき）: ±<span id="variance-en-value">64</span>%
-          <input type="range" id="variance-en-slider" min="0" max="100" value="64">
         </label>
       </div>
 
@@ -203,11 +102,6 @@
         <p>Status: <span id="debug-status">待機中</span></p>
       </div>
 
-      <div class="debug-buttons">
-        <button id="debug-export">Export</button>
-        <button id="debug-import">Import</button>
-      </div>
-      <textarea id="debug-export-area" style="display:none;" rows="8"></textarea>
       <div class="debug-buttons">
         <button id="debug-reset">Reset</button>
       </div>

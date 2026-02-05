@@ -167,8 +167,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 80px;
-  /* 下部ボタン分の余白（ボタン高さ155px + 余白80px + 追加余白80px） */
-  padding-bottom: 315px;
+  /* 下部の余白：最後のルールとボタンの間にスペース */
+  padding-bottom: 80px;
 }
 
 /* ルールアイテム */
@@ -254,7 +254,7 @@ body {
    ======================================== */
 .scroll-to-bottom {
   position: absolute;
-  bottom: 180px;
+  bottom: 175px;
   right: 40px;
   background: transparent;
   border: none;
@@ -281,12 +281,10 @@ body {
    下部ボタン
    ======================================== */
 .action-button-container {
-  position: fixed;
-  bottom: 8px;
-  right: 8px;
-  /* 左パネル幅を除いた残り（左右余白8px分を考慮） */
-  width: calc(100vw - 350px - 16px);
+  position: relative;
+  width: 100%;
   height: 155px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -346,6 +344,15 @@ body {
 .action-button .button-en {
   font-size: 16px;
   font-weight: 700;
+}
+
+/* カウントダウン：tabular-numsで数字幅固定 */
+.action-button .button-ja .countdown-time,
+.action-button .button-en .countdown-time {
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  text-align: center;
+  min-width: 3.5em;
 }
 
 /* 生成中状態：コンテナ側で制御 */
@@ -513,26 +520,3 @@ body {
   background: #A00;
 }
 
-#debug-export,
-#debug-import {
-  background: #444;
-  border-color: #666;
-}
-
-#debug-export:hover,
-#debug-import:hover {
-  background: #555;
-}
-
-#debug-export-area {
-  width: 100%;
-  background: #222;
-  border: 1px solid #555;
-  color: #fff;
-  font-family: monospace;
-  font-size: 10px;
-  padding: 8px;
-  border-radius: 4px;
-  resize: vertical;
-  margin-top: 8px;
-}
