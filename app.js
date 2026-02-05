@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.36';
+const VERSION = '1.0.37';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -493,19 +493,487 @@ function reportStatus(status) {
 }
 
 // ========================================
+// 多角形モーフィング設定
+// ========================================
+const morphConfig = {
+  size: 32,
+  verticesMin: 5,
+  verticesMax: 7,
+  morphDuration: 200,   // ms, ンぎゅ！の速さ
+  holdDuration: 400,    // ms, ・・・の溜め
+  irregularity: 0.53,   // 0=正多角形, 1=中心まで凹む
+  scalePulse: 1.0,      // 変形時の膨らみ
+  rotation: 0,          // 変形ごとの回転角度
+  holdRotation: 0,      // hold中の回転速度（°/s）
+  easing: 'ngyu',       // easing種類
+  // 多角形→縦棒トランジション
+  toBarDuration: 100,   // ms
+  toBarEasing: 'ease-out',
+  barWidth: 14,          // 縦棒の幅（%）
+  barHeight: 100,        // 縦棒の高さ（%）
+};
+
+// ========================================
+// 多角形生成・補間
+// ========================================
+
+// Generate a polygon with N vertices
+function generatePolygon(n, irregularity = 0) {
+  const points = [];
+  const angleStep = (Math.PI * 2) / n;
+  const baseRotation = Math.random() * Math.PI * 2;
+  const rMin = 50 * (1 - irregularity);
+  for (let i = 0; i < n; i++) {
+    const angle = baseRotation + angleStep * i;
+    const r = rMin + Math.random() * (50 - rMin);
+    const x = 50 + r * Math.cos(angle);
+    const y = 50 + r * Math.sin(angle);
+    points.push({ x, y });
+  }
+  return points;
+}
+
+// 多角形の面積を計算（Shoelace formula）
+function polygonArea(points) {
+  let area = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += points[i].x * points[j].y;
+    area -= points[j].x * points[i].y;
+  }
+  return Math.abs(area) / 2;
+}
+
+// 面積を目標値にスケーリング（中心50,50基準）→ 0〜100に収める
+function normalizeArea(points, targetArea) {
+  const currentArea = polygonArea(points);
+  if (currentArea < 0.01) return points;
+  const scale = Math.sqrt(targetArea / currentArea);
+  let scaled = points.map(p => ({
+    x: 50 + (p.x - 50) * scale,
+    y: 50 + (p.y - 50) * scale,
+  }));
+
+  const margin = 1;
+  let maxDist = 0;
+  for (const p of scaled) {
+    maxDist = Math.max(maxDist,
+      (p.x - 50) / (50 - margin),
+      (50 - p.x) / (50 - margin),
+      (p.y - 50) / (50 - margin),
+      (50 - p.y) / (50 - margin),
+    );
+  }
+  if (maxDist > 1) {
+    scaled = scaled.map(p => ({
+      x: 50 + (p.x - 50) / maxDist,
+      y: 50 + (p.y - 50) / maxDist,
+    }));
+  }
+
+  return scaled;
+}
+
+// 正五角形の面積 = 基準面積
+const TARGET_AREA = 0.5 * 5 * 50 * 50 * Math.sin(2 * Math.PI / 5);
+
+// 頂点保持リサンプリング
+function resamplePolygon(points, targetCount) {
+  const n = points.length;
+  if (n === targetCount) return points.map(p => ({ ...p }));
+  if (n >= targetCount) return points.slice(0, targetCount).map(p => ({ ...p }));
+
+  const extra = targetCount - n;
+  const edgeLengths = [];
+  let totalLen = 0;
+  for (let i = 0; i < n; i++) {
+    const next = points[(i + 1) % n];
+    const dx = next.x - points[i].x;
+    const dy = next.y - points[i].y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    edgeLengths.push(len);
+    totalLen += len;
+  }
+
+  const pointsPerEdge = edgeLengths.map(len =>
+    totalLen > 0 ? Math.floor(extra * len / totalLen) : 0
+  );
+
+  let assigned = pointsPerEdge.reduce((a, b) => a + b, 0);
+  let remaining = extra - assigned;
+  const sortedEdges = edgeLengths.map((len, i) => ({ i, len }))
+    .sort((a, b) => b.len - a.len);
+  for (let k = 0; remaining > 0; k++, remaining--) {
+    pointsPerEdge[sortedEdges[k % n].i]++;
+  }
+
+  const result = [];
+  for (let i = 0; i < n; i++) {
+    result.push({ ...points[i] });
+    const next = points[(i + 1) % n];
+    const k = pointsPerEdge[i];
+    for (let j = 1; j <= k; j++) {
+      const t = j / (k + 1);
+      result.push({
+        x: points[i].x + (next.x - points[i].x) * t,
+        y: points[i].y + (next.y - points[i].y) * t,
+      });
+    }
+  }
+
+  return result;
+}
+
+// 回転オフセット＋正逆両方向を試して最小距離の対応づけを見つける
+function findBestRotation(a, b) {
+  const n = a.length;
+  let bestOffset = 0;
+  let bestDist = Infinity;
+  let bestReverse = false;
+
+  for (let reverse = 0; reverse <= 1; reverse++) {
+    const bArr = reverse ? [...b].reverse() : b;
+    for (let offset = 0; offset < n; offset++) {
+      let totalDist = 0;
+      for (let i = 0; i < n; i++) {
+        const j = (i + offset) % n;
+        const dx = a[i].x - bArr[j].x;
+        const dy = a[i].y - bArr[j].y;
+        totalDist += dx * dx + dy * dy;
+      }
+      if (totalDist < bestDist) {
+        bestDist = totalDist;
+        bestOffset = offset;
+        bestReverse = !!reverse;
+      }
+    }
+  }
+
+  const bFinal = bestReverse ? [...b].reverse() : b;
+  const rotated = [];
+  for (let i = 0; i < n; i++) {
+    rotated.push({ ...bFinal[(i + bestOffset) % n] });
+  }
+  return rotated;
+}
+
+// Lerp between two point arrays
+function lerpPolygons(a, b, t) {
+  return a.map((p, i) => ({
+    x: p.x + (b[i].x - p.x) * t,
+    y: p.y + (b[i].y - p.y) * t,
+  }));
+}
+
+// Convert points to clip-path string
+function toClipPath(points) {
+  return `polygon(${points.map(p => `${p.x.toFixed(3)}% ${p.y.toFixed(3)}%`).join(', ')})`;
+}
+
+// ========================================
+// Easing Functions
+// ========================================
+const easings = {
+  'ngyu':        t => Math.pow(t, 4),
+  'linear':      t => t,
+  'ease-in':     t => t * t,
+  'ease-out':    t => 1 - Math.pow(1 - t, 2),
+  'ease-in-out': t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2,
+  'elastic':     t => {
+    if (t === 0 || t === 1) return t;
+    return -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * (2 * Math.PI / 3));
+  },
+  'back':        t => {
+    const c = 1.70158;
+    return (c + 1) * t * t * t - c * t * t;
+  },
+  'bounce':      t => {
+    const t2 = 1 - t;
+    if (t2 < 1/2.75) return 1 - 7.5625 * t2 * t2;
+    if (t2 < 2/2.75) return 1 - (7.5625 * (t2 - 1.5/2.75) * (t2 - 1.5/2.75) + 0.75);
+    if (t2 < 2.5/2.75) return 1 - (7.5625 * (t2 - 2.25/2.75) * (t2 - 2.25/2.75) + 0.9375);
+    return 1 - (7.5625 * (t2 - 2.625/2.75) * (t2 - 2.625/2.75) + 0.984375);
+  },
+};
+
+function getMorphEasing(t) {
+  return (easings[morphConfig.easing] || easings['ngyu'])(t);
+}
+
+// ========================================
+// 縦棒（Bar）形状
+// ========================================
+function getBarShape() {
+  const w = morphConfig.barWidth / 2;
+  const h = morphConfig.barHeight / 2;
+  return [
+    { x: 50 - w, y: 50 - h },
+    { x: 50 + w, y: 50 - h },
+    { x: 50 + w, y: 50 + h },
+    { x: 50 - w, y: 50 + h },
+  ];
+}
+
+// インライン用：要素全幅を使い切るbar clip-path
+function getFullWidthBarClipPath() {
+  const h = morphConfig.barHeight / 2;
+  return toClipPath([
+    { x: 0, y: 50 - h },
+    { x: 100, y: 50 - h },
+    { x: 100, y: 50 + h },
+    { x: 0, y: 50 + h },
+  ]);
+}
+
+function getBarPixelWidth() {
+  return morphConfig.barWidth / 100 * morphConfig.size;
+}
+
+// ========================================
+// 多角形モーフィング アニメーションループ
+// ========================================
+const MORPH_RESOLUTION = 24;
+
+let morphCurrentShapeRaw = null;
+let morphCurrentShape = null;
+let morphNextShape = null;
+let morphCurrentN = 3;
+let morphStartTime = 0;
+let morphPhase = 'hold'; // 'hold' or 'morph'
+let morphHoldStartTime = 0;
+let morphCurrentRotation = 0;
+let morphAnimRunning = false;
+
+function morphPickNextN() {
+  const min = morphConfig.verticesMin;
+  const max = morphConfig.verticesMax;
+  let n;
+  do {
+    n = min + Math.floor(Math.random() * (max - min + 1));
+  } while (n === morphCurrentN && max > min);
+  return n;
+}
+
+function morphMakeRawShape(n) {
+  const raw = generatePolygon(n, morphConfig.irregularity);
+  return normalizeArea(raw, TARGET_AREA);
+}
+
+function morphStartNew() {
+  const nextN = morphPickNextN();
+
+  if (!morphCurrentShapeRaw) {
+    morphCurrentShapeRaw = morphMakeRawShape(morphCurrentN);
+  }
+
+  const nextShapeRaw = morphMakeRawShape(nextN);
+  morphCurrentShape = resamplePolygon(morphCurrentShapeRaw, MORPH_RESOLUTION);
+  const nextResampled = resamplePolygon(nextShapeRaw, MORPH_RESOLUTION);
+  morphNextShape = findBestRotation(morphCurrentShape, nextResampled);
+
+  morphCurrentShapeRaw = nextShapeRaw;
+  morphCurrentN = nextN;
+  morphStartTime = performance.now();
+  morphPhase = 'morph';
+}
+
+function morphApplyClipPath(clipPath, transform) {
+  const el = state.currentCaret;
+  if (!el || !el.classList.contains('thinking')) return;
+  el.style.clipPath = clipPath;
+  el.style.transform = transform;
+}
+
+function morphAnimationLoop(time) {
+  if (!morphAnimRunning) return;
+
+  if (morphPhase === 'hold') {
+    const holdElapsed = time - morphHoldStartTime;
+
+    if (morphConfig.holdRotation !== 0) {
+      const holdDeg = morphCurrentRotation + (holdElapsed / 1000) * morphConfig.holdRotation;
+      const clipPath = toClipPath(morphCurrentShapeRaw);
+      morphApplyClipPath(clipPath, `scale(1) rotate(${holdDeg.toFixed(1)}deg)`);
+    }
+
+    if (holdElapsed >= morphConfig.holdDuration) {
+      if (morphConfig.holdRotation !== 0) {
+        morphCurrentRotation += (morphConfig.holdDuration / 1000) * morphConfig.holdRotation;
+        morphCurrentRotation = morphCurrentRotation % 360;
+      }
+      morphStartNew();
+    }
+  }
+
+  if (morphPhase === 'morph') {
+    const elapsed = time - morphStartTime;
+    const rawT = Math.min(1, elapsed / morphConfig.morphDuration);
+    const t = getMorphEasing(rawT);
+
+    const interpolated = lerpPolygons(morphCurrentShape, morphNextShape, t);
+    const clipPath = toClipPath(interpolated);
+
+    const scaleFactor = 1 + (morphConfig.scalePulse - 1) * Math.sin(rawT * Math.PI);
+    const rotationDelta = morphConfig.rotation * rawT;
+
+    morphApplyClipPath(clipPath, `scale(${scaleFactor.toFixed(3)}) rotate(${(morphCurrentRotation + rotationDelta).toFixed(1)}deg)`);
+
+    if (rawT >= 1) {
+      morphCurrentRotation = (morphCurrentRotation + morphConfig.rotation) % 360;
+      morphPhase = 'hold';
+      morphHoldStartTime = time;
+
+      const holdClip = toClipPath(morphCurrentShapeRaw);
+      morphApplyClipPath(holdClip, `scale(1) rotate(${morphCurrentRotation.toFixed(1)}deg)`);
+    }
+  }
+
+  requestAnimationFrame(morphAnimationLoop);
+}
+
+function startMorphAnimation() {
+  if (morphAnimRunning) return;
+  morphCurrentShapeRaw = morphMakeRawShape(morphConfig.verticesMin);
+  morphCurrentN = morphConfig.verticesMin;
+  morphPhase = 'hold';
+  morphHoldStartTime = performance.now();
+  morphAnimRunning = true;
+
+  // 初期clip-pathを適用
+  const initClip = toClipPath(morphCurrentShapeRaw);
+  morphApplyClipPath(initClip, 'scale(1) rotate(0deg)');
+
+  requestAnimationFrame(morphAnimationLoop);
+}
+
+function stopMorphAnimation() {
+  morphAnimRunning = false;
+}
+
+// ========================================
+// 多角形 ↔ 縦棒 トランジション
+// ========================================
+let caretTransPhase = 'none'; // 'none', 'to-bar', 'to-polygon'
+let caretTransStartTime = 0;
+let caretTransFromShape = null;
+let caretTransToShape = null;
+
+function startCaretTransitionToBar() {
+  if (!morphCurrentShapeRaw) return;
+  stopMorphAnimation();
+
+  const barShape = getBarShape();
+  caretTransFromShape = resamplePolygon(morphCurrentShapeRaw, MORPH_RESOLUTION);
+  const barResampled = resamplePolygon(barShape, MORPH_RESOLUTION);
+  caretTransToShape = findBestRotation(caretTransFromShape, barResampled);
+  caretTransStartTime = performance.now();
+  caretTransPhase = 'to-bar';
+
+  requestAnimationFrame(caretTransitionLoop);
+}
+
+function startCaretTransitionToPolygon() {
+  morphCurrentShapeRaw = morphMakeRawShape(
+    morphConfig.verticesMin + Math.floor(Math.random() * (morphConfig.verticesMax - morphConfig.verticesMin + 1))
+  );
+  morphCurrentN = morphConfig.verticesMin;
+
+  const barShape = getBarShape();
+  caretTransFromShape = resamplePolygon(barShape, MORPH_RESOLUTION);
+  const polyResampled = resamplePolygon(morphCurrentShapeRaw, MORPH_RESOLUTION);
+  caretTransToShape = findBestRotation(caretTransFromShape, polyResampled);
+  caretTransStartTime = performance.now();
+  caretTransPhase = 'to-polygon';
+
+  requestAnimationFrame(caretTransitionLoop);
+}
+
+function caretTransitionLoop(time) {
+  if (caretTransPhase === 'none') return;
+
+  const el = state.currentCaret;
+  if (!el) {
+    caretTransPhase = 'none';
+    return;
+  }
+
+  const elapsed = time - caretTransStartTime;
+  const rawT = Math.min(1, elapsed / morphConfig.toBarDuration);
+  const easingFn = easings[morphConfig.toBarEasing] || easings['ease-out'];
+  const t = easingFn(rawT);
+  const interpolated = lerpPolygons(caretTransFromShape, caretTransToShape, t);
+  const fullSize = morphConfig.size;
+  const barPx = getBarPixelWidth();
+
+  if (caretTransPhase === 'to-bar') {
+    // clip-path: 形のモーフ
+    el.style.clipPath = toClipPath(interpolated);
+    el.style.transform = 'scale(1)';
+
+    // width: rawT^3 で遅延（形が先行、幅が後追い）
+    const widthT = Math.pow(rawT, 3);
+    const w = fullSize + (barPx - fullSize) * widthT;
+    el.style.width = w + 'px';
+
+    if (rawT >= 1) {
+      caretTransPhase = 'none';
+      // 最終状態：barクリップ + bar幅
+      el.style.clipPath = getFullWidthBarClipPath();
+      el.style.width = barPx + 'px';
+      el.style.height = '1em';
+      el.style.verticalAlign = '-4px';
+      el.classList.remove('thinking');
+    }
+  }
+
+  if (caretTransPhase === 'to-polygon') {
+    el.style.clipPath = toClipPath(interpolated);
+    el.style.transform = 'scale(1)';
+
+    // width: 1-(1-rawT)^3 で先行拡大
+    const widthT = 1 - Math.pow(1 - rawT, 3);
+    const w = barPx + (fullSize - barPx) * widthT;
+    el.style.width = w + 'px';
+    el.style.height = fullSize + 'px';
+    el.style.verticalAlign = 'middle';
+
+    if (rawT >= 1) {
+      caretTransPhase = 'none';
+      el.style.clipPath = toClipPath(morphCurrentShapeRaw);
+      el.style.width = fullSize + 'px';
+      el.style.height = fullSize + 'px';
+      el.style.verticalAlign = 'middle';
+      // 多角形morphループを再開
+      startMorphAnimation();
+    }
+  }
+
+  if (caretTransPhase !== 'none') {
+    requestAnimationFrame(caretTransitionLoop);
+  }
+}
+
+// ========================================
 // キャレット制御
 // ========================================
 function showThinkingCaret() {
   removeCurrentCaret();
   const caret = document.createElement('span');
   caret.className = 'caret thinking generating';
+  caret.style.setProperty('width', morphConfig.size + 'px');
+  caret.style.setProperty('height', morphConfig.size + 'px');
   if (state.currentJaElement) {
     state.currentJaElement.appendChild(caret);
   }
   state.currentCaret = caret;
+  // 多角形モーフ開始
+  startMorphAnimation();
 }
 
 function removeCurrentCaret() {
+  stopMorphAnimation();
+  caretTransPhase = 'none';
   if (state.currentCaret && state.currentCaret.parentNode) {
     state.currentCaret.remove();
   }
@@ -513,14 +981,19 @@ function removeCurrentCaret() {
 }
 
 function transformCaretToBar() {
-  if (state.currentCaret) {
-    state.currentCaret.classList.remove('thinking');
+  if (state.currentCaret && state.currentCaret.classList.contains('thinking')) {
+    startCaretTransitionToBar();
   }
 }
 
 function transformCaretToThinking() {
   if (state.currentCaret) {
     state.currentCaret.classList.add('thinking');
+    // barスタイルをリセットして多角形サイズに
+    state.currentCaret.style.width = morphConfig.size + 'px';
+    state.currentCaret.style.height = morphConfig.size + 'px';
+    state.currentCaret.style.verticalAlign = 'middle';
+    startCaretTransitionToPolygon();
   }
 }
 

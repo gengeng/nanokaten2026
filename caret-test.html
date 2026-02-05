@@ -7,7 +7,7 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: "Noto Serif JP", "Hiragino Mincho ProN", serif;
+    font-family: 'SF Pro', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
     background: #fff;
     color: #000;
     padding: 40px;
@@ -16,7 +16,7 @@
   h1 { font-size: 14px; font-weight: normal; margin-bottom: 32px; color: #999; }
   h2 { font-size: 13px; font-weight: normal; margin: 32px 0 12px; color: #666; border-bottom: 1px solid #eee; padding-bottom: 4px; }
 
-  /* ========== Caret Styles (from production) ========== */
+  /* ========== Caret Base ========== */
   .caret {
     display: inline-block;
     width: 4px;
@@ -26,24 +26,31 @@
     margin-left: 2px;
     transition: width 0.3s, height 0.3s, border-radius 0.3s;
   }
+
+  /* ========== Polygon Caret (thinking) ========== */
   .caret.thinking {
+    width: var(--caret-size, 20px);
+    height: var(--caret-size, 20px);
+    border-radius: 0;
+    animation: none;
+    transition: none; /* JSがフレーム単位で制御 */
+    /* clip-path is driven by JS */
+  }
+
+  .caret.generating {
+    background: #999999;
+  }
+
+  /* ========== Original Circle (for comparison) ========== */
+  .caret.thinking-circle {
     width: var(--caret-size, 20px);
     height: var(--caret-size, 20px);
     border-radius: 50%;
     animation: breathing var(--breathing-duration, 1.5s) ease-in-out infinite;
   }
   @keyframes breathing {
-    0%, 100% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    50% {
-      transform: scale(var(--breathing-scale, 1.2));
-      opacity: var(--breathing-opacity, 0.7);
-    }
-  }
-  .caret.generating {
-    background: #999999;
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
   }
 
   /* ========== Demo Layout ========== */
@@ -59,8 +66,9 @@
     margin-bottom: 8px;
   }
   .demo-text {
-    font-size: 16px;
-    line-height: 2;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.5;
   }
 
   /* ========== Controls ========== */
@@ -73,8 +81,8 @@
     border-top: 1px solid #ddd;
     padding: 20px 40px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px 20px;
   }
   .control-group label {
     display: block;
@@ -90,156 +98,924 @@
     color: #999;
     text-align: right;
   }
-  .toggle-btn {
-    font-size: 12px;
-    padding: 6px 16px;
-    border: 1px solid #ccc;
-    background: #fff;
-    cursor: pointer;
-    border-radius: 3px;
-    margin-right: 8px;
-  }
-  .toggle-btn:hover { background: #f0f0f0; }
-  .toggle-btn.active { background: #000; color: #fff; border-color: #000; }
 
-  .content { padding-bottom: 180px; }
+  .content { padding-bottom: 240px; }
+
+  /* ========== Big preview ========== */
+  .preview-large {
+    display: inline-block;
+    width: 400px;
+    height: 400px;
+    background: #000;
+    vertical-align: middle;
+  }
+  .preview-large.generating { background: #999; }
 </style>
 </head>
 <body>
 <div class="content">
-  <h1>Caret Test — 待機中キャレット検証</h1>
+  <h1>Caret Test — 多角形キャレット検証</h1>
 
-  <!-- 1. 全状態の一覧 -->
-  <h2>States</h2>
-  <div class="demo-section">
-    <div class="demo-label">通常（縦棒）</div>
-    <div class="demo-text">テキストの末尾<span class="caret" id="caret-normal"></span></div>
-  </div>
-  <div class="demo-section">
-    <div class="demo-label">思考（正円 + 呼吸）</div>
-    <div class="demo-text">テキストの末尾<span class="caret thinking" id="caret-thinking"></span></div>
-  </div>
-  <div class="demo-section">
-    <div class="demo-label">生成中（グレー縦棒）</div>
-    <div class="demo-text">テキストの末尾<span class="caret generating" id="caret-generating"></span></div>
-  </div>
-  <div class="demo-section">
-    <div class="demo-label">生成中 + 思考（グレー正円 + 呼吸）</div>
-    <div class="demo-text">テキストの末尾<span class="caret thinking generating" id="caret-thinking-gen"></span></div>
+  <!-- 1. 大きめプレビュー -->
+  <h2>Preview (large)</h2>
+  <div class="demo-section" style="text-align: center;">
+    <div class="demo-label">多角形変形 — ・・・ンぎゅ！・・・ンぎゅ！</div>
+    <div style="padding: 40px;">
+      <span class="preview-large" id="preview-large"></span>
+    </div>
   </div>
 
   <!-- 2. テキスト文脈 -->
   <h2>In Context</h2>
   <div class="demo-section">
-    <div class="demo-label">ルール文中での見え方</div>
+    <div class="demo-label">ルール文中での見え方（多角形）</div>
     <div class="demo-text" style="max-width: 600px;">
       #264 じゃんけんにおいて、グーはチョキに勝ち、チョキはパーに勝ち、パーはグーに勝つ。ただし、第三者が「待った」と宣言した場合、その勝負は無効となり、<span class="caret thinking" id="caret-context"></span>
     </div>
   </div>
-
-  <!-- 3. トグルデモ -->
-  <h2>Toggle</h2>
   <div class="demo-section">
-    <div class="demo-label">状態遷移を確認（ボタンで切り替え）</div>
-    <div class="demo-text" style="margin-bottom: 16px;">
-      切り替えテスト<span class="caret" id="caret-toggle"></span>
+    <div class="demo-label">比較：従来の正円 + 呼吸</div>
+    <div class="demo-text" style="max-width: 600px;">
+      #264 じゃんけんにおいて、グーはチョキに勝ち、チョキはパーに勝ち、パーはグーに勝つ。ただし、第三者が「待った」と宣言した場合、その勝負は無効となり、<span class="caret thinking-circle" id="caret-circle"></span>
     </div>
-    <button class="toggle-btn active" id="btn-bar">縦棒</button>
-    <button class="toggle-btn" id="btn-think">思考</button>
-    <button class="toggle-btn" id="btn-gen">生成中</button>
-    <button class="toggle-btn" id="btn-gen-think">生成中+思考</button>
+  </div>
+
+  <div class="demo-section">
+    <div class="demo-label">ルール文中での見え方（自動サイクル：縦棒 ↔ 多角形）</div>
+    <div class="demo-text" style="max-width: 600px;">
+      #264 じゃんけんにおいて、グーはチョキに勝ち、チョキはパーに勝ち、パーはグーに勝つ。ただし、第三者が「待った」と宣言した場合、その勝負は無効となり、<span class="caret thinking" id="caret-autocycle-context"></span>
+    </div>
+  </div>
+
+  <!-- 3. 複数サイズ -->
+  <h2>Sizes</h2>
+  <div class="demo-section">
+    <div class="demo-label">テキスト中の各サイズ</div>
+    <div class="demo-text">
+      12px<span class="caret thinking" data-morph-size="12" style="width:12px;height:12px;"></span>
+      &nbsp;&nbsp;
+      16px<span class="caret thinking" data-morph-size="16" style="width:16px;height:16px;"></span>
+      &nbsp;&nbsp;
+      20px<span class="caret thinking" data-morph-size="20" style="width:20px;height:20px;"></span>
+      &nbsp;&nbsp;
+      24px<span class="caret thinking" data-morph-size="24" style="width:24px;height:24px;"></span>
+      &nbsp;&nbsp;
+      30px<span class="caret thinking" data-morph-size="30" style="width:30px;height:30px;"></span>
+    </div>
+  </div>
+
+  <!-- 4. 多角形→縦棒トランジション -->
+  <h2>Transition: 多角形 → 縦棒</h2>
+  <div class="demo-section" style="text-align: center;">
+    <div class="demo-label">ボタンで切り替え（実際の遷移をプレビュー）</div>
+    <div style="padding: 40px;">
+      <span class="preview-large" id="preview-transition" style="width:200px;height:200px;"></span>
+    </div>
+    <div style="margin-top: 16px;">
+      <button id="btn-to-bar" style="font-size:13px;padding:8px 20px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;margin-right:8px;">→ 縦棒</button>
+      <button id="btn-to-polygon" style="font-size:13px;padding:8px 20px;border:1px solid #ccc;background:#fff;cursor:pointer;border-radius:3px;">→ 多角形</button>
+    </div>
+  </div>
+
+  <!-- 5. 自動サイクル：キャレット ↔ 多角形 -->
+  <h2>Auto Cycle: キャレット ↔ 多角形（5秒間隔）</h2>
+  <div class="demo-section" style="text-align: center;">
+    <div class="demo-label">5秒ごとに 縦棒→多角形→縦棒→… を自動切り替え</div>
+    <div style="padding: 40px;">
+      <span class="preview-large" id="preview-autocycle" style="width:200px;height:200px;"></span>
+    </div>
+    <div style="margin-top: 8px;">
+      <span id="autocycle-status" style="font-size:11px;color:#999;">多角形</span>
+    </div>
   </div>
 </div>
 
 <!-- Controls -->
 <div class="controls">
   <div class="control-group">
-    <label>Circle Size: <span class="value" id="val-size">20px</span></label>
-    <input type="range" id="slider-size" min="8" max="40" value="20" step="1">
+    <label>Size サイズ: <span class="value" id="val-size">32px</span></label>
+    <input type="range" id="slider-size" min="8" max="40" value="32" step="1">
   </div>
   <div class="control-group">
-    <label>Duration: <span class="value" id="val-duration">1.5s</span></label>
-    <input type="range" id="slider-duration" min="0.3" max="4" value="1.5" step="0.1">
+    <label>Vertices min 頂点数（最小）: <span class="value" id="val-vmin">5</span></label>
+    <input type="range" id="slider-vmin" min="3" max="8" value="5" step="1">
   </div>
   <div class="control-group">
-    <label>Scale: <span class="value" id="val-scale">1.2</span></label>
-    <input type="range" id="slider-scale" min="1.0" max="1.8" value="1.2" step="0.05">
+    <label>Vertices max 頂点数（最大）: <span class="value" id="val-vmax">7</span></label>
+    <input type="range" id="slider-vmax" min="3" max="12" value="7" step="1">
   </div>
   <div class="control-group">
-    <label>Min Opacity: <span class="value" id="val-opacity">0.7</span></label>
-    <input type="range" id="slider-opacity" min="0.1" max="1.0" value="0.7" step="0.05">
+    <label>Morph ンぎゅの速さ: <span class="value" id="val-morph">0.2s</span></label>
+    <input type="range" id="slider-morph" min="0.05" max="2.0" value="0.2" step="0.05">
+  </div>
+  <div class="control-group">
+    <label>Hold 溜めの長さ: <span class="value" id="val-hold">0.4s</span></label>
+    <input type="range" id="slider-hold" min="0.0" max="4.0" value="0.4" step="0.1">
+  </div>
+  <div class="control-group">
+    <label>Irregularity 歪み: <span class="value" id="val-irreg">0.53</span></label>
+    <input type="range" id="slider-irreg" min="0" max="1.0" value="0.53" step="0.01">
+  </div>
+  <div class="control-group">
+    <label>Scale Pulse 膨らみ: <span class="value" id="val-scale">1</span></label>
+    <input type="range" id="slider-scale" min="1.0" max="1.3" value="1.0" step="0.01">
+  </div>
+  <div class="control-group">
+    <label>Morph Rotation 変形時回転: <span class="value" id="val-rotate">0°</span></label>
+    <input type="range" id="slider-rotate" min="0" max="90" value="0" step="1">
+  </div>
+  <div class="control-group">
+    <label>Hold Rotation 待機中回転: <span class="value" id="val-holdrot">0°/s</span></label>
+    <input type="range" id="slider-holdrot" min="0" max="180" value="0" step="1">
+  </div>
+  <div class="control-group">
+    <label>Easing モーション種類:</label>
+    <select id="select-easing" style="width:100%;font-size:12px;padding:4px;">
+      <option value="ngyu">ンぎゅ（溜め→急）</option>
+      <option value="linear">linear（等速）</option>
+      <option value="ease-in">ease-in（加速）</option>
+      <option value="ease-out">ease-out（減速）</option>
+      <option value="ease-in-out">ease-in-out（加減速）</option>
+      <option value="elastic">elastic（ビヨンビヨン）</option>
+      <option value="back">back（引いてドン）</option>
+      <option value="bounce">bounce（バウンス）</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>To Bar 縦棒化の速さ: <span class="value" id="val-tobar">0.1s</span></label>
+    <input type="range" id="slider-tobar" min="0.05" max="2.0" value="0.1" step="0.05">
+  </div>
+  <div class="control-group">
+    <label>To Bar Easing 縦棒化モーション:</label>
+    <select id="select-tobar-easing" style="width:100%;font-size:12px;padding:4px;">
+      <option value="ease-out" selected>ease-out（減速）</option>
+      <option value="ngyu">ンぎゅ（溜め→急）</option>
+      <option value="linear">linear（等速）</option>
+      <option value="ease-in">ease-in（加速）</option>
+      <option value="ease-in-out">ease-in-out（加減速）</option>
+      <option value="elastic">elastic（ビヨンビヨン）</option>
+      <option value="back">back（引いてドン）</option>
+      <option value="bounce">bounce（バウンス）</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>Bar Width 縦棒の幅: <span class="value" id="val-barw">14%</span></label>
+    <input type="range" id="slider-barw" min="0.5" max="20" value="14" step="0.5">
+  </div>
+  <div class="control-group">
+    <label>Bar Height 縦棒の高さ: <span class="value" id="val-barh">100%</span></label>
+    <input type="range" id="slider-barh" min="10" max="100" value="100" step="5">
   </div>
 </div>
 
 <script>
-  const root = document.documentElement;
+// ============================
+// Morphing Polygon Caret
+// ============================
 
-  // Sliders
-  const sliders = {
-    size:     { el: document.getElementById('slider-size'),     val: document.getElementById('val-size'),     prop: '--caret-size',          unit: 'px' },
-    duration: { el: document.getElementById('slider-duration'), val: document.getElementById('val-duration'), prop: '--breathing-duration',   unit: 's' },
-    scale:    { el: document.getElementById('slider-scale'),    val: document.getElementById('val-scale'),    prop: '--breathing-scale',      unit: '' },
-    opacity:  { el: document.getElementById('slider-opacity'),  val: document.getElementById('val-opacity'),  prop: '--breathing-opacity',    unit: '' },
-  };
+// Config (driven by sliders)
+const morphConfig = {
+  size: 32,
+  verticesMin: 5,
+  verticesMax: 7,
+  morphDuration: 200,   // ms, ンぎゅ！の速さ
+  holdDuration: 400,    // ms, ・・・の溜め
+  irregularity: 0.53,   // 0=正多角形, 1=中心まで凹む
+  scalePulse: 1.0,      // 変形時の膨らみ
+  rotation: 0,          // 変形ごとの回転角度
+  holdRotation: 0,      // hold中の回転速度（°/s）
+  easing: 'ngyu',       // easing種類
+  // 多角形→縦棒トランジション
+  toBarDuration: 100,   // ms
+  toBarEasing: 'ease-out',
+  barWidth: 14,          // 縦棒の幅（%）
+  barHeight: 100,        // 縦棒の高さ（%）
+};
 
-  for (const [key, s] of Object.entries(sliders)) {
-    s.el.addEventListener('input', () => {
-      const v = s.el.value;
-      s.val.textContent = v + s.unit;
-      if (s.unit) {
-        root.style.setProperty(s.prop, v + s.unit);
-      } else {
-        root.style.setProperty(s.prop, v);
-      }
-      // keyframes can't read CSS vars at animation time in all browsers,
-      // so rebuild the keyframes dynamically
-      rebuildKeyframes();
-    });
+// Generate a polygon with N vertices
+// irregularity: 0 = regular polygon, 1 = vertices can reach center (concave)
+function generatePolygon(n, irregularity = 0) {
+  const points = [];
+  const angleStep = (Math.PI * 2) / n;
+  const baseRotation = Math.random() * Math.PI * 2;
+  const rMin = 50 * (1 - irregularity);  // irregularity=0→50, =1→0(中心まで)
+  for (let i = 0; i < n; i++) {
+    const angle = baseRotation + angleStep * i;
+    const r = rMin + Math.random() * (50 - rMin);
+    const x = 50 + r * Math.cos(angle);
+    const y = 50 + r * Math.sin(angle);
+    points.push({ x, y });
+  }
+  return points;
+}
+
+// 多角形の面積を計算（Shoelace formula）
+function polygonArea(points) {
+  let area = 0;
+  const n = points.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    area += points[i].x * points[j].y;
+    area -= points[j].x * points[i].y;
+  }
+  return Math.abs(area) / 2;
+}
+
+// 面積を目標値にスケーリング（中心50,50基準）→ 0〜100に収める
+function normalizeArea(points, targetArea) {
+  const currentArea = polygonArea(points);
+  if (currentArea < 0.01) return points;
+  const scale = Math.sqrt(targetArea / currentArea);
+  let scaled = points.map(p => ({
+    x: 50 + (p.x - 50) * scale,
+    y: 50 + (p.y - 50) * scale,
+  }));
+
+  // はみ出し防止：0〜100に収まるよう縮小
+  const margin = 1; // 端から1%のマージン
+  let maxDist = 0;
+  for (const p of scaled) {
+    maxDist = Math.max(maxDist,
+      (p.x - 50) / (50 - margin),
+      (50 - p.x) / (50 - margin),
+      (p.y - 50) / (50 - margin),
+      (50 - p.y) / (50 - margin),
+    );
+  }
+  if (maxDist > 1) {
+    scaled = scaled.map(p => ({
+      x: 50 + (p.x - 50) / maxDist,
+      y: 50 + (p.y - 50) / maxDist,
+    }));
   }
 
-  function rebuildKeyframes() {
-    const scale = sliders.scale.el.value;
-    const opacity = sliders.opacity.el.value;
-    const duration = sliders.duration.el.value;
+  return scaled;
+}
 
-    // Remove old stylesheet if exists
-    let sheet = document.getElementById('dynamic-keyframes');
-    if (sheet) sheet.remove();
+// 正N角形（irregularity=0, r=50）の面積 = 基準面積
+const TARGET_AREA = 0.5 * 5 * 50 * 50 * Math.sin(2 * Math.PI / 5); // 正五角形の面積
 
-    sheet = document.createElement('style');
-    sheet.id = 'dynamic-keyframes';
-    sheet.textContent = `
-      @keyframes breathing {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(${scale}); opacity: ${opacity}; }
-      }
-      .caret.thinking {
-        animation-duration: ${duration}s;
-      }
-    `;
-    document.head.appendChild(sheet);
+// 頂点保持リサンプリング：元の頂点を必ず含み、辺の間を均等分割
+function resamplePolygon(points, targetCount) {
+  const n = points.length;
+  if (n === targetCount) return points.map(p => ({ ...p }));
+  if (n >= targetCount) return points.slice(0, targetCount).map(p => ({ ...p }));
+
+  const extra = targetCount - n; // 追加する中間点の総数
+
+  // 各辺の長さを計算
+  const edgeLengths = [];
+  let totalLen = 0;
+  for (let i = 0; i < n; i++) {
+    const next = points[(i + 1) % n];
+    const dx = next.x - points[i].x;
+    const dy = next.y - points[i].y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    edgeLengths.push(len);
+    totalLen += len;
   }
 
-  // Toggle buttons
-  const caretToggle = document.getElementById('caret-toggle');
-  const buttons = {
-    'btn-bar':        [],
-    'btn-think':      ['thinking'],
-    'btn-gen':        ['generating'],
-    'btn-gen-think':  ['thinking', 'generating'],
-  };
+  // 辺の長さに比例して中間点を配分
+  const pointsPerEdge = edgeLengths.map(len =>
+    totalLen > 0 ? Math.floor(extra * len / totalLen) : 0
+  );
 
-  for (const [id, classes] of Object.entries(buttons)) {
-    document.getElementById(id).addEventListener('click', () => {
-      // Reset
-      caretToggle.className = 'caret';
-      classes.forEach(c => caretToggle.classList.add(c));
-      // Button active state
-      Object.keys(buttons).forEach(bid => {
-        document.getElementById(bid).classList.toggle('active', bid === id);
+  // 端数調整：足りない分を長い辺から順に+1
+  let assigned = pointsPerEdge.reduce((a, b) => a + b, 0);
+  let remaining = extra - assigned;
+  // 長さ順にソートしたインデックス
+  const sortedEdges = edgeLengths.map((len, i) => ({ i, len }))
+    .sort((a, b) => b.len - a.len);
+  for (let k = 0; remaining > 0; k++, remaining--) {
+    pointsPerEdge[sortedEdges[k % n].i]++;
+  }
+
+  // 結果構築：頂点 → 中間点 → 頂点 → 中間点 → ...
+  const result = [];
+  for (let i = 0; i < n; i++) {
+    result.push({ ...points[i] }); // 元の頂点（必ず含む）
+    const next = points[(i + 1) % n];
+    const k = pointsPerEdge[i];
+    for (let j = 1; j <= k; j++) {
+      const t = j / (k + 1);
+      result.push({
+        x: points[i].x + (next.x - points[i].x) * t,
+        y: points[i].y + (next.y - points[i].y) * t,
       });
-    });
+    }
   }
+
+  return result;
+}
+
+// 回転オフセット＋正逆両方向を試して、移動総距離が最小になる対応づけを見つける
+function findBestRotation(a, b) {
+  const n = a.length;
+  let bestOffset = 0;
+  let bestDist = Infinity;
+  let bestReverse = false;
+
+  // 正順と逆順の両方を試す
+  for (let reverse = 0; reverse <= 1; reverse++) {
+    const bArr = reverse ? [...b].reverse() : b;
+    for (let offset = 0; offset < n; offset++) {
+      let totalDist = 0;
+      for (let i = 0; i < n; i++) {
+        const j = (i + offset) % n;
+        const dx = a[i].x - bArr[j].x;
+        const dy = a[i].y - bArr[j].y;
+        totalDist += dx * dx + dy * dy;
+      }
+      if (totalDist < bestDist) {
+        bestDist = totalDist;
+        bestOffset = offset;
+        bestReverse = !!reverse;
+      }
+    }
+  }
+
+  const bFinal = bestReverse ? [...b].reverse() : b;
+  const rotated = [];
+  for (let i = 0; i < n; i++) {
+    rotated.push({ ...bFinal[(i + bestOffset) % n] });
+  }
+  return rotated;
+}
+
+// Lerp between two point arrays (same length)
+function lerpPolygons(a, b, t) {
+  return a.map((p, i) => ({
+    x: p.x + (b[i].x - p.x) * t,
+    y: p.y + (b[i].y - p.y) * t,
+  }));
+}
+
+// Convert points to clip-path string
+function toClipPath(points) {
+  return `polygon(${points.map(p => `${p.x.toFixed(3)}% ${p.y.toFixed(3)}%`).join(', ')})`;
+}
+
+// ============================
+// Easing Functions
+// ============================
+const easings = {
+  'ngyu':        t => Math.pow(t, 4),                                      // ・・・ンぎゅ！
+  'linear':      t => t,                                                    // 等速
+  'ease-in':     t => t * t,                                                // 加速
+  'ease-out':    t => 1 - Math.pow(1 - t, 2),                              // 減速
+  'ease-in-out': t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2, // 加減速
+  'elastic':     t => {                                                     // ビヨンビヨン
+    if (t === 0 || t === 1) return t;
+    return -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * (2 * Math.PI / 3));
+  },
+  'back':        t => {                                                     // 引いてドン
+    const c = 1.70158;
+    return (c + 1) * t * t * t - c * t * t;
+  },
+  'bounce':      t => {                                                     // バウンス
+    const t2 = 1 - t;
+    if (t2 < 1/2.75) return 1 - 7.5625 * t2 * t2;
+    if (t2 < 2/2.75) return 1 - (7.5625 * (t2 - 1.5/2.75) * (t2 - 1.5/2.75) + 0.75);
+    if (t2 < 2.5/2.75) return 1 - (7.5625 * (t2 - 2.25/2.75) * (t2 - 2.25/2.75) + 0.9375);
+    return 1 - (7.5625 * (t2 - 2.625/2.75) * (t2 - 2.625/2.75) + 0.984375);
+  },
+};
+
+function getEasing(t) {
+  return (easings[morphConfig.easing] || easings['ngyu'])(t);
+}
+
+// ============================
+// Animation State
+// ============================
+
+// Resolution for interpolation (max vertices we work with)
+const RESOLUTION = 24;
+
+let currentShapeRaw = null;   // 元の頂点（リサンプリング前）
+let currentShape = null;      // リサンプリング済み（morph用）
+let nextShape = null;
+let currentN = 3;
+let morphStartTime = 0;
+let phase = 'hold'; // 'morph' or 'hold'
+let holdStartTime = 0;
+let currentRotation = 0;
+
+// All elements to animate
+function getMorphElements() {
+  return document.querySelectorAll('.caret.thinking:not(#caret-autocycle-context), #preview-large');
+}
+
+function pickNextN() {
+  const min = morphConfig.verticesMin;
+  const max = morphConfig.verticesMax;
+  let n;
+  do {
+    n = min + Math.floor(Math.random() * (max - min + 1));
+  } while (n === currentN && max > min);
+  return n;
+}
+
+function makeRawShape(n) {
+  const raw = generatePolygon(n, morphConfig.irregularity);
+  return normalizeArea(raw, TARGET_AREA);
+}
+
+function startNewMorph() {
+  const nextN = pickNextN();
+
+  if (!currentShapeRaw) {
+    currentShapeRaw = makeRawShape(currentN);
+  }
+
+  const nextShapeRaw = makeRawShape(nextN);
+
+  // モーフィング用にリサンプリング → 最適回転で頂点対応づけ
+  currentShape = resamplePolygon(currentShapeRaw, RESOLUTION);
+  const nextResampled = resamplePolygon(nextShapeRaw, RESOLUTION);
+  nextShape = findBestRotation(currentShape, nextResampled);
+
+  // 次のholdで使う生の形を保持
+  currentShapeRaw = nextShapeRaw;
+  currentN = nextN;
+  morphStartTime = performance.now();
+  phase = 'morph';
+}
+
+function animationLoop(time) {
+  if (phase === 'hold') {
+    const holdElapsed = time - holdStartTime;
+
+    // hold中の回転
+    if (morphConfig.holdRotation !== 0) {
+      const holdDeg = currentRotation + (holdElapsed / 1000) * morphConfig.holdRotation;
+      const clipPath = toClipPath(currentShapeRaw);
+      getMorphElements().forEach(el => {
+        el.style.clipPath = clipPath;
+        el.style.transform = `scale(1) rotate(${holdDeg.toFixed(1)}deg)`;
+      });
+    }
+
+    if (holdElapsed >= morphConfig.holdDuration) {
+      // hold中に回った分をcurrentRotationに反映
+      if (morphConfig.holdRotation !== 0) {
+        currentRotation += (morphConfig.holdDuration / 1000) * morphConfig.holdRotation;
+        currentRotation = currentRotation % 360;
+      }
+      startNewMorph();
+    }
+  }
+
+  if (phase === 'morph') {
+    const elapsed = time - morphStartTime;
+    const rawT = Math.min(1, elapsed / morphConfig.morphDuration);
+    const t = getEasing(rawT);
+
+    const interpolated = lerpPolygons(currentShape, nextShape, t);
+    const clipPath = toClipPath(interpolated);
+
+    // Scale pulse: peaks at t=0.5
+    const scaleFactor = 1 + (morphConfig.scalePulse - 1) * Math.sin(rawT * Math.PI);
+
+    // Rotation
+    const rotationDelta = morphConfig.rotation * rawT;
+
+    getMorphElements().forEach(el => {
+      el.style.clipPath = clipPath;
+      el.style.transform = `scale(${scaleFactor.toFixed(3)}) rotate(${(currentRotation + rotationDelta).toFixed(1)}deg)`;
+    });
+
+    if (rawT >= 1) {
+      // Morph complete — 元の頂点（リサンプリングなし）で描画 → シャープな角
+      currentRotation = (currentRotation + morphConfig.rotation) % 360;
+      phase = 'hold';
+      holdStartTime = time;
+
+      const clipPath = toClipPath(currentShapeRaw);
+      getMorphElements().forEach(el => {
+        el.style.clipPath = clipPath;
+        el.style.transform = `scale(1) rotate(${currentRotation.toFixed(1)}deg)`;
+      });
+    }
+  }
+
+  requestAnimationFrame(animationLoop);
+}
+
+// Init — 元の頂点で描画（シャープ）
+currentShapeRaw = makeRawShape(3);
+const initClip = toClipPath(currentShapeRaw);
+getMorphElements().forEach(el => {
+  el.style.clipPath = initClip;
+});
+holdStartTime = performance.now();
+requestAnimationFrame(animationLoop);
+
+// ============================
+// Slider Controls
+// ============================
+
+const sliderDefs = [
+  { id: 'slider-size',    valId: 'val-size',    key: 'size',          unit: 'px', isInt: true },
+  { id: 'slider-vmin',    valId: 'val-vmin',    key: 'verticesMin',   unit: '',   isInt: true },
+  { id: 'slider-vmax',    valId: 'val-vmax',    key: 'verticesMax',   unit: '',   isInt: true },
+  { id: 'slider-morph',   valId: 'val-morph',   key: 'morphDuration', unit: 's',  isInt: false, multiply: 1000 },
+  { id: 'slider-hold',    valId: 'val-hold',    key: 'holdDuration',  unit: 's',  isInt: false, multiply: 1000 },
+  { id: 'slider-irreg',   valId: 'val-irreg',   key: 'irregularity',  unit: '',   isInt: false },
+  { id: 'slider-scale',   valId: 'val-scale',   key: 'scalePulse',    unit: '',   isInt: false },
+  { id: 'slider-rotate',  valId: 'val-rotate',  key: 'rotation',      unit: '°',  isInt: true },
+  { id: 'slider-holdrot', valId: 'val-holdrot', key: 'holdRotation',  unit: '°/s', isInt: true },
+  { id: 'slider-tobar',   valId: 'val-tobar',   key: 'toBarDuration',  unit: 's',  isInt: false, multiply: 1000 },
+  { id: 'slider-barw',    valId: 'val-barw',    key: 'barWidth',       unit: '%',  isInt: false },
+  { id: 'slider-barh',    valId: 'val-barh',    key: 'barHeight',      unit: '%',  isInt: false },
+];
+
+sliderDefs.forEach(def => {
+  const slider = document.getElementById(def.id);
+  const valEl = document.getElementById(def.valId);
+
+  slider.addEventListener('input', () => {
+    const raw = def.isInt ? parseInt(slider.value) : parseFloat(slider.value);
+    valEl.textContent = slider.value + def.unit;
+    morphConfig[def.key] = def.multiply ? raw * def.multiply : raw;
+
+    // Update caret sizes
+    if (def.key === 'size') {
+      document.documentElement.style.setProperty('--caret-size', raw + 'px');
+    }
+
+    // Ensure min <= max
+    if (def.key === 'verticesMin') {
+      const maxSlider = document.getElementById('slider-vmax');
+      if (raw > parseInt(maxSlider.value)) {
+        maxSlider.value = raw;
+        morphConfig.verticesMax = raw;
+        document.getElementById('val-vmax').textContent = raw;
+      }
+    }
+    if (def.key === 'verticesMax') {
+      const minSlider = document.getElementById('slider-vmin');
+      if (raw < parseInt(minSlider.value)) {
+        minSlider.value = raw;
+        morphConfig.verticesMin = raw;
+        document.getElementById('val-vmin').textContent = raw;
+      }
+    }
+  });
+});
+
+// Easing select
+document.getElementById('select-easing').addEventListener('change', (e) => {
+  morphConfig.easing = e.target.value;
+});
+
+// To Bar easing select
+document.getElementById('select-tobar-easing').addEventListener('change', (e) => {
+  morphConfig.toBarEasing = e.target.value;
+});
+
+// ============================
+// Transition: 多角形 ↔ 縦棒
+// ============================
+
+const transEl = document.getElementById('preview-transition');
+let transPhase = 'polygon'; // 'polygon', 'to-bar', 'bar', 'to-polygon'
+let transStartTime = 0;
+let transFromShape = null;
+let transToShape = null;
+let transShapeRaw = null;
+
+// 縦棒の形（clip-pathの%で表現、morphConfigから動的に生成）
+function getBarShape() {
+  const w = morphConfig.barWidth / 2;
+  const h = morphConfig.barHeight / 2;
+  return [
+    { x: 50 - w, y: 50 - h },
+    { x: 50 + w, y: 50 - h },
+    { x: 50 + w, y: 50 + h },
+    { x: 50 - w, y: 50 + h },
+  ];
+}
+
+// トランジション用のmorphアニメ（独立ループ）
+function initTransition() {
+  transShapeRaw = makeRawShape(morphConfig.verticesMin);
+  const clip = toClipPath(transShapeRaw);
+  transEl.style.clipPath = clip;
+  transEl.style.transform = 'scale(1) rotate(0deg)';
+}
+
+function transitionAnimationLoop(time) {
+  if (transPhase === 'to-bar' || transPhase === 'to-polygon') {
+    const elapsed = time - transStartTime;
+    const duration = transPhase === 'to-bar' ? morphConfig.toBarDuration : morphConfig.toBarDuration;
+    const rawT = Math.min(1, elapsed / duration);
+    const easingFn = easings[morphConfig.toBarEasing] || easings['ease-out'];
+    const t = easingFn(rawT);
+
+    const interpolated = lerpPolygons(transFromShape, transToShape, t);
+    transEl.style.clipPath = toClipPath(interpolated);
+
+    if (rawT >= 1) {
+      if (transPhase === 'to-bar') {
+        transPhase = 'bar';
+        transEl.style.clipPath = toClipPath(getBarShape());
+      } else {
+        transPhase = 'polygon';
+        transEl.style.clipPath = toClipPath(transShapeRaw);
+      }
+    }
+  }
+
+  requestAnimationFrame(transitionAnimationLoop);
+}
+
+initTransition();
+requestAnimationFrame(transitionAnimationLoop);
+
+// ボタン
+document.getElementById('btn-to-bar').addEventListener('click', () => {
+  if (transPhase !== 'polygon') return;
+  const barShape = getBarShape();
+  transFromShape = resamplePolygon(transShapeRaw, RESOLUTION);
+  const barResampled = resamplePolygon(barShape, RESOLUTION);
+  transToShape = findBestRotation(transFromShape, barResampled);
+  transStartTime = performance.now();
+  transPhase = 'to-bar';
+});
+
+document.getElementById('btn-to-polygon').addEventListener('click', () => {
+  if (transPhase !== 'bar') return;
+  transShapeRaw = makeRawShape(morphConfig.verticesMin + Math.floor(Math.random() * (morphConfig.verticesMax - morphConfig.verticesMin + 1)));
+  const barShape = getBarShape();
+  transFromShape = resamplePolygon(barShape, RESOLUTION);
+  const polyResampled = resamplePolygon(transShapeRaw, RESOLUTION);
+  transToShape = findBestRotation(transFromShape, polyResampled);
+  transStartTime = performance.now();
+  transPhase = 'to-polygon';
+});
+
+// ============================
+// Auto Cycle: キャレット ↔ 多角形（5秒間隔）
+// ============================
+
+const autoCycleEl = document.getElementById('preview-autocycle');
+const autoCycleContextEl = document.getElementById('caret-autocycle-context');
+const autoCycleStatus = document.getElementById('autocycle-status');
+
+// auto cycle対象の全要素を返す
+function getAutoCycleElements() {
+  return [autoCycleEl, autoCycleContextEl];
+}
+let acPhase = 'polygon';       // 'polygon', 'to-bar', 'bar', 'to-polygon'
+let acStartTime = 0;
+let acFromShape = null;
+let acToShape = null;
+let acShapeRaw = null;
+let acHoldStart = 0;
+// 多角形morph用
+let acMorphPhase = 'hold';     // 'hold' or 'morph'
+let acMorphStartTime = 0;
+let acMorphHoldStart = 0;
+let acCurrentShapeRaw = null;
+let acCurrentShape = null;
+let acNextShape = null;
+let acCurrentN = 5;
+
+const AC_CYCLE_INTERVAL = 5000; // 5秒
+
+function acMakeRawShape(n) {
+  const raw = generatePolygon(n, morphConfig.irregularity);
+  return normalizeArea(raw, TARGET_AREA);
+}
+
+function acPickNextN() {
+  const min = morphConfig.verticesMin;
+  const max = morphConfig.verticesMax;
+  let n;
+  do {
+    n = min + Math.floor(Math.random() * (max - min + 1));
+  } while (n === acCurrentN && max > min);
+  return n;
+}
+
+function acStartNewMorph(time) {
+  const nextN = acPickNextN();
+  if (!acCurrentShapeRaw) {
+    acCurrentShapeRaw = acMakeRawShape(acCurrentN);
+  }
+  const nextShapeRaw = acMakeRawShape(nextN);
+  acCurrentShape = resamplePolygon(acCurrentShapeRaw, RESOLUTION);
+  const nextResampled = resamplePolygon(nextShapeRaw, RESOLUTION);
+  acNextShape = findBestRotation(acCurrentShape, nextResampled);
+  acCurrentShapeRaw = nextShapeRaw;
+  acCurrentN = nextN;
+  acMorphStartTime = time;
+  acMorphPhase = 'morph';
+}
+
+// 初期化
+function initAutoCycle() {
+  acCurrentShapeRaw = acMakeRawShape(morphConfig.verticesMin);
+  acShapeRaw = acCurrentShapeRaw;
+  acCurrentN = morphConfig.verticesMin;
+  const clip = toClipPath(acCurrentShapeRaw);
+  getAutoCycleElements().forEach(el => {
+    el.style.clipPath = clip;
+    el.style.transform = 'scale(1) rotate(0deg)';
+  });
+  acPhase = 'polygon';
+  acHoldStart = performance.now();
+  acMorphPhase = 'hold';
+  acMorphHoldStart = performance.now();
+}
+
+function acTransitionToBar(time) {
+  const barShape = getBarShape();
+  acFromShape = resamplePolygon(acCurrentShapeRaw, RESOLUTION);
+  const barResampled = resamplePolygon(barShape, RESOLUTION);
+  acToShape = findBestRotation(acFromShape, barResampled);
+  acStartTime = time;
+  acPhase = 'to-bar';
+  acMorphPhase = 'hold'; // 多角形morphを止める
+  autoCycleStatus.textContent = '→ 縦棒';
+}
+
+function acTransitionToPolygon(time) {
+  acCurrentShapeRaw = acMakeRawShape(morphConfig.verticesMin + Math.floor(Math.random() * (morphConfig.verticesMax - morphConfig.verticesMin + 1)));
+  acCurrentN = morphConfig.verticesMin;
+  const barShape = getBarShape();
+  acFromShape = resamplePolygon(barShape, RESOLUTION);
+  const polyResampled = resamplePolygon(acCurrentShapeRaw, RESOLUTION);
+  acToShape = findBestRotation(acFromShape, polyResampled);
+  acStartTime = time;
+  acPhase = 'to-polygon';
+  autoCycleStatus.textContent = '→ 多角形';
+}
+
+// preview-large: clip-pathのみ（幅固定）
+// インライン: clip-pathは常に「要素全幅で描画」、widthを変えて細さを表現
+function acApplyStyle(clipPath, transform, widthPx) {
+  getAutoCycleElements().forEach(el => {
+    const isInline = !el.classList.contains('preview-large');
+    el.style.clipPath = isInline ? undefined : clipPath; // インラインは別途設定
+    el.style.transform = transform;
+    if (!isInline) {
+      el.style.clipPath = clipPath;
+    }
+  });
+}
+
+// インラインキャレット用：要素全幅を使い切るbar clip-path
+function getFullWidthBarClipPath() {
+  const h = morphConfig.barHeight / 2;
+  return toClipPath([
+    { x: 0, y: 50 - h },
+    { x: 100, y: 50 - h },
+    { x: 100, y: 50 + h },
+    { x: 0, y: 50 + h },
+  ]);
+}
+
+function getBarPixelWidth() {
+  return morphConfig.barWidth / 100 * morphConfig.size;
+}
+
+function autoCycleAnimationLoop(time) {
+  const fullSize = morphConfig.size;
+  const barPx = getBarPixelWidth();
+
+  // ── 多角形状態：morph loop + 5秒後に縦棒へ ──
+  if (acPhase === 'polygon') {
+    // 多角形morph（hold→morph繰り返し）
+    if (acMorphPhase === 'hold') {
+      const holdElapsed = time - acMorphHoldStart;
+      if (holdElapsed >= morphConfig.holdDuration) {
+        acStartNewMorph(time);
+      }
+    }
+    if (acMorphPhase === 'morph') {
+      const elapsed = time - acMorphStartTime;
+      const rawT = Math.min(1, elapsed / morphConfig.morphDuration);
+      const t = getEasing(rawT);
+      const interpolated = lerpPolygons(acCurrentShape, acNextShape, t);
+      const clipPath = toClipPath(interpolated);
+      const scaleFactor = 1 + (morphConfig.scalePulse - 1) * Math.sin(rawT * Math.PI);
+      const transformStr = `scale(${scaleFactor.toFixed(3)})`;
+
+      // preview-large
+      autoCycleEl.style.clipPath = clipPath;
+      autoCycleEl.style.transform = transformStr;
+      // インライン（多角形中はfullSize）
+      autoCycleContextEl.style.clipPath = clipPath;
+      autoCycleContextEl.style.transform = transformStr;
+      autoCycleContextEl.style.width = fullSize + 'px';
+
+      if (rawT >= 1) {
+        acMorphPhase = 'hold';
+        acMorphHoldStart = time;
+        const holdClip = toClipPath(acCurrentShapeRaw);
+        autoCycleEl.style.clipPath = holdClip;
+        autoCycleEl.style.transform = 'scale(1)';
+        autoCycleContextEl.style.clipPath = holdClip;
+        autoCycleContextEl.style.transform = 'scale(1)';
+        autoCycleContextEl.style.width = fullSize + 'px';
+      }
+    }
+
+    // 5秒経ったら縦棒へ
+    if (time - acHoldStart >= AC_CYCLE_INTERVAL) {
+      acTransitionToBar(time);
+    }
+  }
+
+  // ── 縦棒へ遷移中 ──
+  if (acPhase === 'to-bar') {
+    const elapsed = time - acStartTime;
+    const rawT = Math.min(1, elapsed / morphConfig.toBarDuration);
+    const easingFn = easings[morphConfig.toBarEasing] || easings['ease-out'];
+    const t = easingFn(rawT);
+    const interpolated = lerpPolygons(acFromShape, acToShape, t);
+
+    // preview-large: clip-pathだけで変形
+    autoCycleEl.style.clipPath = toClipPath(interpolated);
+    autoCycleEl.style.transform = 'scale(1)';
+
+    // インライン: widthを fullSize→barPx に縮小
+    // width用のイージング：前半は幅をほぼ保ち、後半で急速に縮む
+    // rawT^3 で遅延させ、形のモーフが先行して左寄せの印象を弱める
+    const widthT = Math.pow(rawT, 3);
+    const w = fullSize + (barPx - fullSize) * widthT;
+    autoCycleContextEl.style.clipPath = toClipPath(interpolated);
+    autoCycleContextEl.style.transform = 'scale(1)';
+    autoCycleContextEl.style.width = w + 'px';
+
+    if (rawT >= 1) {
+      acPhase = 'bar';
+      acHoldStart = time;
+      // preview-large: barShape（元の%）
+      autoCycleEl.style.clipPath = toClipPath(getBarShape());
+      // インライン: 要素幅=barPx、clip-pathは全幅bar、ベースライン揃え
+      autoCycleContextEl.style.clipPath = getFullWidthBarClipPath();
+      autoCycleContextEl.style.width = barPx + 'px';
+      autoCycleContextEl.style.height = '1em';
+      autoCycleContextEl.style.verticalAlign = '-4px';
+      autoCycleStatus.textContent = '縦棒';
+    }
+  }
+
+  // ── 縦棒状態：5秒後に多角形へ ──
+  if (acPhase === 'bar') {
+    if (time - acHoldStart >= AC_CYCLE_INTERVAL) {
+      acTransitionToPolygon(time);
+    }
+  }
+
+  // ── 多角形へ遷移中 ──
+  if (acPhase === 'to-polygon') {
+    const elapsed = time - acStartTime;
+    const rawT = Math.min(1, elapsed / morphConfig.toBarDuration);
+    const easingFn = easings[morphConfig.toBarEasing] || easings['ease-out'];
+    const t = easingFn(rawT);
+    const interpolated = lerpPolygons(acFromShape, acToShape, t);
+
+    // preview-large: clip-pathだけ
+    autoCycleEl.style.clipPath = toClipPath(interpolated);
+    autoCycleEl.style.transform = 'scale(1)';
+
+    // インライン: widthを barPx→fullSize に拡大、height/alignを多角形用に戻す
+    // width用のイージング：序盤で素早く広がり、形のモーフに先行させる
+    // 1 - (1-rawT)^3 で最初に急拡大（to-barの逆カーブ）
+    const widthT = 1 - Math.pow(1 - rawT, 3);
+    const w = barPx + (fullSize - barPx) * widthT;
+    autoCycleContextEl.style.clipPath = toClipPath(interpolated);
+    autoCycleContextEl.style.transform = 'scale(1)';
+    autoCycleContextEl.style.width = w + 'px';
+    autoCycleContextEl.style.height = fullSize + 'px';
+    autoCycleContextEl.style.verticalAlign = 'middle';
+
+    if (rawT >= 1) {
+      acPhase = 'polygon';
+      acHoldStart = time;
+      acMorphPhase = 'hold';
+      acMorphHoldStart = time;
+      const holdClip = toClipPath(acCurrentShapeRaw);
+      autoCycleEl.style.clipPath = holdClip;
+      autoCycleEl.style.transform = 'scale(1)';
+      autoCycleContextEl.style.clipPath = holdClip;
+      autoCycleContextEl.style.transform = 'scale(1)';
+      autoCycleContextEl.style.width = fullSize + 'px';
+      autoCycleContextEl.style.height = fullSize + 'px';
+      autoCycleContextEl.style.verticalAlign = 'middle';
+      autoCycleStatus.textContent = '多角形';
+    }
+  }
+
+  requestAnimationFrame(autoCycleAnimationLoop);
+}
+
+initAutoCycle();
+requestAnimationFrame(autoCycleAnimationLoop);
 </script>
 </body>
 </html>

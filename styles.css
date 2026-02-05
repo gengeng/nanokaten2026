@@ -232,23 +232,14 @@ body {
   margin-left: 2px;
 }
 
-/* 思考状態（正円 + 呼吸アニメーション） */
+/* 思考状態（多角形モーフィング — JSがフレーム単位で制御） */
 .caret.thinking {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  animation: breathing 1.5s ease-in-out infinite;
-}
-
-@keyframes breathing {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 0.7;
-  }
+  width: var(--caret-size, 32px);
+  height: var(--caret-size, 32px);
+  border-radius: 0;
+  animation: none;
+  transition: none; /* JSがフレーム単位で制御 */
+  /* clip-path is driven by JS */
 }
 
 /* 生成中のグレー表示 */
