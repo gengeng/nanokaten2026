@@ -5,13 +5,12 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.32';
+const VERSION = '1.0.33';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
   rulesSheetId: '487776336',
   gameInfoSheetId: '1056169981',
-  configSheetId: '697189836',  // リモート設定シート
   typewriterSpeed: 8, // 1-100
   // URLパラメータまたはリモート設定から取得
   startRule: parseInt(new URLSearchParams(window.location.search).get('startRule')) || 8,
@@ -207,6 +206,20 @@ async function loadRules() {
   try {
     const data = await fetchSheetData(CONFIG.rulesSheetId);
     const rows = data.table.rows;
+
+    // config列を1行目から取得（config_startRule=L列, config_isPaused=M列）
+    const remoteConfig = {};
+    if (rows.length > 0 && rows[0].c) {
+      const firstRow = rows[0].c;
+      if (firstRow[11]?.v !== undefined && firstRow[11]?.v !== null) {
+        remoteConfig.startRule = firstRow[11].v;
+      }
+      if (firstRow[12]?.v !== undefined && firstRow[12]?.v !== null) {
+        remoteConfig.isPaused = firstRow[12].v;
+      }
+    }
+    state.remoteConfig = remoteConfig;
+    console.log('Remote config from rules sheet:', JSON.stringify(remoteConfig));
 
     state.rules = rows.map(row => {
       const cells = row.c;
@@ -1258,64 +1271,56 @@ window.getState = function() {
 };
 
 // ========================================
-// リモート設定（Google Sheets）
+// リモート設定（ルールシートのconfig列から取得）
 // ========================================
-async function loadRemoteConfig() {
-  if (!CONFIG.configSheetId) return null;
-
-  try {
-    // CSVで取得（gviz/tqだと型推論でnullになる問題を回避）
-    const csvUrl = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/export?format=csv&gid=${CONFIG.configSheetId}`;
-    const response = await fetch(csvUrl);
-    const text = await response.text();
-
-    const config = {};
-    text.trim().split('\n').forEach(line => {
-      const [key, ...rest] = line.split(',');
-      const value = rest.join(',').trim();
-      if (key && value !== '') {
-        config[key.trim()] = value;
-      }
-    });
-    console.log('Remote config parsed:', JSON.stringify(config));
-    return config;
-  } catch (e) {
-    console.error('Failed to load remote config:', e);
-    return null;
-  }
-}
-
 function startRemoteConfigPolling() {
-  // 1分ごとにリモート設定を確認
+  // 1分ごとにルールシートからリモート設定を確認
   setInterval(async () => {
-    const config = await loadRemoteConfig();
-    if (!config) return;
+    try {
+      const data = await fetchSheetData(CONFIG.rulesSheetId);
+      const rows = data.table.rows;
+      if (!rows || rows.length === 0) return;
 
-    // 一時停止フラグの確認
-    const isPaused = config.isPaused === true || config.isPaused === 'true' || config.isPaused === 'TRUE';
-    if (isPaused && !state.isPaused) {
-      console.log('Remote pause activated');
-      state.isPaused = true;
-      state.isGenerating = false;
-      updatePageTitle();
-      reportStatus();
-    } else if (!isPaused && state.isPaused) {
-      console.log('Remote pause deactivated');
-      state.isPaused = false;
-      updatePageTitle();
-      reportStatus();
-    }
+      const firstRow = rows[0].c;
+      if (!firstRow) return;
 
-    // 開始ルール番号の確認（次回リロード時に反映）
-    if (config.startRule !== undefined) {
-      const newStartRule = parseInt(config.startRule);
-      if (!isNaN(newStartRule) && newStartRule !== CONFIG.startRule) {
-        console.log(`Start rule updated: ${CONFIG.startRule} -> ${newStartRule}`);
-        // URLパラメータがない場合のみリモート設定を使用
-        if (!new URLSearchParams(window.location.search).has('startRule')) {
-          CONFIG.startRule = newStartRule;
+      const config = {};
+      if (firstRow[11]?.v !== undefined && firstRow[11]?.v !== null) {
+        config.startRule = firstRow[11].v;
+      }
+      if (firstRow[12]?.v !== undefined && firstRow[12]?.v !== null) {
+        config.isPaused = firstRow[12].v;
+      }
+      state.remoteConfig = config;
+
+      // 一時停止フラグの確認
+      const isPaused = config.isPaused === true || config.isPaused === 'true' || config.isPaused === 'TRUE';
+      if (isPaused && !state.isPaused) {
+        console.log('Remote pause activated');
+        state.isPaused = true;
+        state.isGenerating = false;
+        updatePageTitle();
+        reportStatus();
+      } else if (!isPaused && state.isPaused) {
+        console.log('Remote pause deactivated');
+        state.isPaused = false;
+        updatePageTitle();
+        reportStatus();
+      }
+
+      // 開始ルール番号の確認（次回リロード時に反映）
+      if (config.startRule !== undefined) {
+        const newStartRule = parseInt(config.startRule);
+        if (!isNaN(newStartRule) && newStartRule !== CONFIG.startRule) {
+          console.log(`Start rule updated: ${CONFIG.startRule} -> ${newStartRule}`);
+          // URLパラメータがない場合のみリモート設定を使用
+          if (!new URLSearchParams(window.location.search).has('startRule')) {
+            CONFIG.startRule = newStartRule;
+          }
         }
       }
+    } catch (e) {
+      console.error('Remote config polling failed:', e);
     }
   }, 60000); // 1分間隔
 }
@@ -1621,12 +1626,17 @@ async function init() {
 
   setupEventListeners();
 
-  // リモート設定を最初に読み込み（URLパラメータがない場合）
+  // ルールとゲーム情報を読み込み（ルールシートにconfig列も含む）
+  await Promise.all([
+    loadGameInfo(),
+    loadRules(),
+  ]);
+  console.log(`Rules loaded: ${state.rules.length}, Segments: ${state.segments.length}`);
+
+  // リモート設定を適用（URLパラメータがない場合）
   if (!new URLSearchParams(window.location.search).has('startRule')) {
-    const remoteConfig = await loadRemoteConfig();
-    console.log('Remote config:', JSON.stringify(remoteConfig));
-    if (remoteConfig?.startRule !== undefined) {
-      const startRule = parseInt(remoteConfig.startRule);
+    if (state.remoteConfig?.startRule !== undefined) {
+      const startRule = parseInt(state.remoteConfig.startRule);
       if (!isNaN(startRule)) {
         CONFIG.startRule = startRule;
         console.log(`Start rule from remote config: ${startRule}`);
@@ -1634,12 +1644,6 @@ async function init() {
     }
   }
   console.log(`CONFIG.startRule = ${CONFIG.startRule}`);
-
-  await Promise.all([
-    loadGameInfo(),
-    loadRules(),
-  ]);
-  console.log(`Rules loaded: ${state.rules.length}, Segments: ${state.segments.length}`);
 
   // 初期ルールを表示
   displayInitialRules();
