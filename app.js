@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.40';
+const VERSION = '1.0.41';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -1303,6 +1303,8 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   transformCaretToBar();
 
   let charsDone = 0;
+  let pendingComponent = null;  // ルール完了後に左カラム表示するデータ
+  let pendingHands = null;
 
   for (const seg of segmentsToGenerate) {
     // 新しいルール番号なら要素を作成
@@ -1321,12 +1323,12 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
       // 番号をタイプライター表示
       await typewriterNumber(seg.num);
 
-      // 内容物・じゃんけんの手をタイプライター表示（右パネルと並行）
+      // 内容物・じゃんけんの手データを一時保持（ルール完了後に表示する）
       if (seg.componentJa) {
-        queueLeftPanelTypewriter('component', seg.componentJa, seg.componentEn);
+        pendingComponent = { ja: seg.componentJa, en: seg.componentEn };
       }
       if (seg.jankenJa) {
-        queueLeftPanelTypewriter('hands', seg.jankenJa, seg.jankenEn);
+        pendingHands = { ja: seg.jankenJa, en: seg.jankenEn };
       }
     }
 
@@ -1343,6 +1345,16 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
       makeCurrentRuleBlack();
       // アニメーション完了を待つ（英語→次の番号への間）
       await delay(state.pauseEnToNum * 100);
+
+      // ルール完了後に左カラム表示を発火（右パネルと並行）
+      if (pendingComponent) {
+        queueLeftPanelTypewriter('component', pendingComponent.ja, pendingComponent.en);
+        pendingComponent = null;
+      }
+      if (pendingHands) {
+        queueLeftPanelTypewriter('hands', pendingHands.ja, pendingHands.en);
+        pendingHands = null;
+      }
     }
 
     state.currentSegmentIndex++;
