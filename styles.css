@@ -75,17 +75,20 @@ body {
 .game-title {
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
 
 .game-version {
-  margin-top: 8px;
+  margin-top: 16px;
   padding: 4px 10px;
   font-size: 14px;
-  font-weight: 600;
-  color: #FFF;
-  background: #000;
+  font-weight: 500;
+  color: #000;
+  background: transparent;
+  border: 1px solid #000;
   line-height: normal;
   width: fit-content;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
 }
 
 /* numericText風アニメーション */
@@ -136,18 +139,24 @@ body {
   to { transform: translateY(0); opacity: 1; }
 }
 
+.title-ja,
+.title-en {
+  display: block;
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
 .title-ja {
-  font-size: 36px;
-  font-weight: 700;
-  line-height: normal;
-  color: #000000;
+  width: 178px;
+  height: 40px;
 }
 
 .title-en {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: normal;
-  color: rgba(0, 0, 0, 0.6);
+  width: 207px;
+  height: 22px;
+  /* #666相当のグレーにする */
+  filter: invert(40%) sepia(0%) saturate(0%) brightness(100%);
 }
 
 /* セクション群 */
@@ -155,80 +164,91 @@ body {
   display: flex;
   flex-direction: column;
   gap: 35px;
-  width: 286px;
 }
 
 /* 各セクション */
 .game-section {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-}
-
-/* セクションヘッダー */
-.section-header {
-  display: flex;
-  align-items: center;
   gap: 8px;
 }
 
+/* セクションヘッダー：日英横並び（日本語左、英語右） */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+/* セクションコンテンツ：行ごとの日英ペア */
+.section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 各行：日英ペア（日本語左、英語右） */
+.content-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+/* 見出し：600 */
 .header-ja {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 600;
   color: #000000;
 }
 
 .header-en {
   font-size: 16px;
   font-weight: 600;
-  color: rgba(0, 0, 0, 0.6);
-  flex: 1;
+  color: #000000;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
+  text-align: right;
 }
 
-/* セクションコンテンツ */
-.section-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
+/* 内容：500、14px */
 .content-ja {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
   color: #000000;
   line-height: 1.5;
 }
 
 .content-en {
   font-size: 14px;
-  font-weight: 700;
-  color: rgba(0, 0, 0, 0.6);
+  font-weight: 500;
+  color: #000000;
   line-height: 1.5;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
+  text-align: right;
 }
 
-/* 左パネルハイライト */
-.left-highlight {
+/* 新規行追加アニメーション */
+.content-row-entering {
+  animation: content-row-slide-in 0.3s ease-out;
+}
+
+@keyframes content-row-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 左パネルハイライト（行全体） */
+.content-row {
   position: relative;
-  background: #000;
-  color: #FFF;
-  /* paddingではなくbox-shadowで背景を拡張（文字位置に影響しない） */
-  box-shadow: 4px 0 0 #000, -4px 0 0 #000;
-  padding: 1px 0;
 }
 
-.content-en .left-highlight {
-  color: #FFF;
-}
-
-/* ハイライト解除アニメーション */
-.left-highlight.hl-removing {
-  background: transparent;
-  color: inherit;
-  box-shadow: none;
-  transition: color 0.35s ease-out;
-}
-
-.left-highlight.hl-removing::before {
+/* ハイライト背景（疑似要素） */
+.content-row::before {
   content: '';
   position: absolute;
   top: 0;
@@ -237,12 +257,39 @@ body {
   right: -4px;
   background: #000;
   z-index: -1;
+  clip-path: inset(0 100% 0 0);  /* 初期状態：非表示 */
+}
+
+/* ハイライト中のテキスト色 */
+.content-row.hl-active .content-ja,
+.content-row.hl-active .content-en {
+  color: #FFF;
+}
+
+/* ハイライト出現（左→右） */
+.content-row.hl-wipe-in::before {
+  animation: hl-wipe-in 0.35s ease-out forwards;
+}
+
+@keyframes hl-wipe-in {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* ハイライト解除（左→右） */
+.content-row.hl-wipe-out::before {
   animation: hl-wipe-out 0.35s ease-out forwards;
 }
 
 @keyframes hl-wipe-out {
   from { clip-path: inset(0 0 0 0); }
   to { clip-path: inset(0 0 0 100%); }
+}
+
+/* ハイライト解除後のテキスト色遷移 */
+.content-row.hl-fade-text .content-ja,
+.content-row.hl-fade-text .content-en {
+  transition: color 0.35s ease-out;
 }
 
 /* ========================================
@@ -285,6 +332,7 @@ body {
   /* 桁数が増えても右のテキストがズレないように固定幅 */
   min-width: 56px;
   text-align: left;
+  transition: color 0.5s ease-out;
 }
 
 .rule-content {
@@ -307,10 +355,7 @@ body {
   font-weight: 600;
   color: #000000;
   transition: color 0.5s ease-out;
-}
-
-.rule-number {
-  transition: color 0.5s ease-out;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
 }
 
 /* タイプライター用キャレット */

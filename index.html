@@ -15,33 +15,31 @@
     <!-- 左カラム：ゲーム情報 -->
     <aside class="left-panel">
       <div class="game-title">
-        <p class="title-ja" id="title-ja">じゃんけん</p>
-        <p class="title-en" id="title-en">Rock-Paper-Scissors</p>
+        <img class="title-ja" id="title-ja" src="assets/logo_ja.svg" alt="じゃんけん">
+        <img class="title-en" id="title-en" src="assets/logo_en.svg" alt="Rock-Paper-Scissors">
         <span class="game-version" id="game-version"><span class="ver-label">v.</span><span class="ver-digits" id="ver-digits">1.0</span></span>
       </div>
 
       <div class="game-sections">
-        <!-- 内容物 -->
-        <section class="game-section">
-          <div class="section-header">
-            <span class="header-ja">内容物</span>
-            <span class="header-en">Components</span>
-          </div>
-          <div class="section-content">
-            <p class="content-ja" id="components-ja"></p>
-            <p class="content-en" id="components-en"></p>
-          </div>
-        </section>
-
-        <!-- じゃんけんの手 -->
+        <!-- 手 -->
         <section class="game-section">
           <div class="section-header">
             <span class="header-ja">手</span>
             <span class="header-en">Hands</span>
           </div>
-          <div class="section-content">
-            <p class="content-ja" id="hands-ja"></p>
-            <p class="content-en" id="hands-en"></p>
+          <div class="section-content" id="hands-list">
+            <!-- JSで生成：<div class="content-row"><span class="content-ja">グー</span><span class="content-en">Rock</span></div> -->
+          </div>
+        </section>
+
+        <!-- コンポーネント -->
+        <section class="game-section">
+          <div class="section-header">
+            <span class="header-ja">コンポーネント</span>
+            <span class="header-en">Components</span>
+          </div>
+          <div class="section-content" id="components-list">
+            <!-- JSで生成 -->
           </div>
         </section>
       </div>

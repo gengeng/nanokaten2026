@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.55';
+const VERSION = '1.0.64';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -112,10 +112,8 @@ let titleTapTimer = null;
 // DOM要素
 // ========================================
 const elements = {
-  componentsJa: document.getElementById('components-ja'),
-  componentsEn: document.getElementById('components-en'),
-  handsJa: document.getElementById('hands-ja'),
-  handsEn: document.getElementById('hands-en'),
+  componentsList: document.getElementById('components-list'),
+  handsList: document.getElementById('hands-list'),
   ruleList: document.getElementById('rule-list'),
   actionButton: document.getElementById('action-button'),
   actionButtonContainer: document.getElementById('action-button-container'),
@@ -251,8 +249,8 @@ async function loadRules() {
 function prepareSegments(rules) {
   const segments = [];
   rules.forEach(rule => {
-    // 「、」の後ろで分割（「、」を含む）
-    const jaParts = rule.ja.split(/(?<=、)/);
+    // 「、」または「:」（半角コロン、スペースあり・なし両対応）の後ろで分割（区切り文字を含む）
+    const jaParts = rule.ja.split(/(?<=、)|(?<=: ?)/);
 
     jaParts.forEach((part, i) => {
       segments.push({
@@ -354,25 +352,51 @@ function updateVersionDisplay(major, minor, animate = true) {
   }
 }
 
-// 即時表示（初期表示用）
+// 即時表示（初期表示用）— 行ごとの日英ペア、新着が上
+// `/` 区切りの場合は分割して複数行に
 function addComponentInstant(ja, en) {
-  if (componentCount > 0) {
-    elements.componentsJa.appendChild(document.createTextNode(' / '));
-    elements.componentsEn.appendChild(document.createTextNode(' / '));
+  const jaItems = ja.split(' / ').map(s => s.trim()).filter(s => s);
+  const enItems = en.split(' / ').map(s => s.trim()).filter(s => s);
+  const count = Math.max(jaItems.length, enItems.length);
+
+  // 逆順で追加（prepend なので最後のアイテムが一番上に来るように）
+  for (let i = count - 1; i >= 0; i--) {
+    const row = document.createElement('div');
+    row.className = 'content-row';
+    const jaSpan = document.createElement('span');
+    jaSpan.className = 'content-ja';
+    jaSpan.textContent = jaItems[i] || '';
+    const enSpan = document.createElement('span');
+    enSpan.className = 'content-en';
+    enSpan.textContent = enItems[i] || '';
+    row.appendChild(jaSpan);
+    row.appendChild(enSpan);
+    elements.componentsList.prepend(row);
+    componentCount++;
   }
-  elements.componentsJa.appendChild(document.createTextNode(ja));
-  elements.componentsEn.appendChild(document.createTextNode(en));
-  componentCount++;
 }
 
+// `/` 区切りの場合は分割して複数行に
 function addHandInstant(ja, en) {
-  if (handsCount > 0) {
-    elements.handsJa.appendChild(document.createTextNode(' / '));
-    elements.handsEn.appendChild(document.createTextNode(' / '));
+  const jaItems = ja.split(' / ').map(s => s.trim()).filter(s => s);
+  const enItems = en.split(' / ').map(s => s.trim()).filter(s => s);
+  const count = Math.max(jaItems.length, enItems.length);
+
+  // 逆順で追加（prepend なので最後のアイテムが一番上に来るように）
+  for (let i = count - 1; i >= 0; i--) {
+    const row = document.createElement('div');
+    row.className = 'content-row';
+    const jaSpan = document.createElement('span');
+    jaSpan.className = 'content-ja';
+    jaSpan.textContent = jaItems[i] || '';
+    const enSpan = document.createElement('span');
+    enSpan.className = 'content-en';
+    enSpan.textContent = enItems[i] || '';
+    row.appendChild(jaSpan);
+    row.appendChild(enSpan);
+    elements.handsList.prepend(row);
+    handsCount++;
   }
-  elements.handsJa.appendChild(document.createTextNode(ja));
-  elements.handsEn.appendChild(document.createTextNode(en));
-  handsCount++;
 }
 
 // タイプライター表示（生成中用、キューで逐次実行）
@@ -382,60 +406,86 @@ function queueLeftPanelTypewriter(type, ja, en) {
 
 async function typewriterLeftPanel(type, ja, en) {
   const isComponent = type === 'component';
-  const jaEl = isComponent ? elements.componentsJa : elements.handsJa;
-  const enEl = isComponent ? elements.componentsEn : elements.handsEn;
-  const count = isComponent ? componentCount : handsCount;
+  const listEl = isComponent ? elements.componentsList : elements.handsList;
 
-  // 区切りを追加
-  if (count > 0) {
+  // `/` 区切りの場合は分割
+  const jaItems = ja.split(' / ').map(s => s.trim()).filter(s => s);
+  const enItems = en.split(' / ').map(s => s.trim()).filter(s => s);
+  const count = Math.max(jaItems.length, enItems.length);
+
+  // 追加した行を記録
+  const rows = [];
+
+  // 各アイテムを順番にタイプライター表示
+  for (let i = 0; i < count; i++) {
+    const jaText = jaItems[i] || '';
+    const enText = enItems[i] || '';
+
+    // 行を作成
+    const row = document.createElement('div');
+    row.className = 'content-row';
+
+    // 日本語span
+    const jaSpan = document.createElement('span');
+    jaSpan.className = 'content-ja';
+
+    // 英語span
+    const enSpan = document.createElement('span');
+    enSpan.className = 'content-en';
+
+    row.appendChild(jaSpan);
+    row.appendChild(enSpan);
+
+    // 新着を上に追加（スライドインアニメーション）
+    row.classList.add('content-row-entering');
+    listEl.prepend(row);
+    rows.push(row);
+
+    // 日本語をタイプライター表示
+    for (const char of jaText) {
+      jaSpan.appendChild(document.createTextNode(char));
+      await delay(getTypewriterDelay(char));
+    }
+
+    // 英語をタイプライター表示
+    for (const char of enText) {
+      enSpan.appendChild(document.createTextNode(char));
+      await delay(getTypewriterDelayEn(char));
+    }
+
     if (isComponent) {
-      jaEl.appendChild(document.createTextNode(' / '));
-      enEl.appendChild(document.createTextNode(' / '));
+      componentCount++;
     } else {
-      jaEl.appendChild(document.createTextNode(' / '));
-      enEl.appendChild(document.createTextNode(' / '));
+      handsCount++;
     }
   }
 
-  // ハイライトspan作成
-  const jaHl = document.createElement('span');
-  jaHl.className = 'left-highlight';
-  jaEl.appendChild(jaHl);
-  const enHl = document.createElement('span');
-  enHl.className = 'left-highlight';
-  enEl.appendChild(enHl);
+  // すべてのタイプライター完了後、全行にハイライトアニメーション
+  // 1. ハイライト出現（左→右）
+  rows.forEach(row => row.classList.add('hl-active', 'hl-wipe-in'));
+  await delay(350);
 
-  // 日本語をタイプライター表示（span内に追加）
-  for (const char of ja) {
-    jaHl.appendChild(document.createTextNode(char));
-    await delay(getTypewriterDelay(char));
-  }
+  // 2. ハイライト解除（左→右）
+  rows.forEach(row => {
+    row.classList.remove('hl-wipe-in');
+    row.classList.add('hl-wipe-out', 'hl-fade-text');
+  });
+  await delay(350);
 
-  // 英語をタイプライター表示（span内に追加）
-  for (const char of en) {
-    enHl.appendChild(document.createTextNode(char));
-    await delay(getTypewriterDelayEn(char));
-  }
-
-  if (isComponent) {
-    componentCount++;
-  } else {
-    handsCount++;
-  }
+  // 3. クリーンアップ
+  rows.forEach(row => {
+    row.classList.remove('hl-active', 'hl-wipe-out', 'hl-fade-text');
+  });
 }
 
-// 左パネルハイライト解除
+// 左パネルハイライト解除（新しい行全体ハイライト用）
 function removeLeftPanelHighlights() {
-  const highlights = document.querySelectorAll('.left-highlight');
-  highlights.forEach(span => {
-    span.classList.add('hl-removing');
-    span.addEventListener('animationend', () => {
-      const parent = span.parentNode;
-      if (!parent) return;
-      while (span.firstChild) {
-        parent.insertBefore(span.firstChild, span);
-      }
-      parent.removeChild(span);
+  const rows = document.querySelectorAll('.content-row.hl-active');
+  rows.forEach(row => {
+    row.classList.remove('hl-wipe-in');
+    row.classList.add('hl-wipe-out', 'hl-fade-text');
+    row.addEventListener('animationend', () => {
+      row.classList.remove('hl-active', 'hl-wipe-out', 'hl-fade-text');
     }, { once: true });
   });
 }
