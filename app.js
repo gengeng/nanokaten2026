@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.67';
+const VERSION = '1.0.68';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -1503,14 +1503,17 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
     await typewriterJaWithProgress(seg.jaSegment, charsDone, totalChars, seg.isFirst);
     charsDone += seg.jaSegment.length;
 
-    // セグメント間の一時停止（「、」や「：」の後）
-    // ルール最後のセグメントでなければ、キャレットを●に変化させて待機
+    // セグメント間で生成を止める（「、」や「：」の後）
+    // ルール最後のセグメントでなければ、ここで生成終了→次のボタン押下まで待機
     if (!seg.isLast) {
+      state.currentSegmentIndex++;
+      // キャレットを●に変化させて思考中表示
       transformCaretToThinking();
-      await delay(1000);  // 1秒間思考
-      if (state.currentCaret) {
-        state.currentCaret.classList.remove('thinking');
+      onTextComplete();
+      if (state.isAutoScroll) {
+        scrollToBottom();
       }
+      return;  // forループを抜けて生成終了
     }
 
     // ルールの最後なら英語をタイプライター表示
@@ -1539,9 +1542,9 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
     state.currentSegmentIndex++;
   }
 
-  // 最後のセグメントが「、」で終わるなら●に変化
+  // 最後のセグメントが「、」や「：」で終わるなら●に変化
   const lastSeg = segmentsToGenerate[segmentsToGenerate.length - 1];
-  if (lastSeg && lastSeg.jaSegment.endsWith('、')) {
+  if (lastSeg && (lastSeg.jaSegment.endsWith('、') || lastSeg.jaSegment.endsWith('：') || lastSeg.jaSegment.endsWith('： '))) {
     transformCaretToThinking();
   }
 
