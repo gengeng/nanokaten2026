@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.66';
+const VERSION = '1.0.67';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -1502,6 +1502,16 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
     // 日本語タイプライター（統合進捗）
     await typewriterJaWithProgress(seg.jaSegment, charsDone, totalChars, seg.isFirst);
     charsDone += seg.jaSegment.length;
+
+    // セグメント間の一時停止（「、」や「：」の後）
+    // ルール最後のセグメントでなければ、キャレットを●に変化させて待機
+    if (!seg.isLast) {
+      transformCaretToThinking();
+      await delay(1000);  // 1秒間思考
+      if (state.currentCaret) {
+        state.currentCaret.classList.remove('thinking');
+      }
+    }
 
     // ルールの最後なら英語をタイプライター表示
     if (seg.isLast && seg.enFull) {
