@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.68';
+const VERSION = '1.0.69';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -249,8 +249,8 @@ async function loadRules() {
 function prepareSegments(rules) {
   const segments = [];
   rules.forEach(rule => {
-    // 「、」または「：」（全角コロン）の後ろで分割（区切り文字を含む）
-    const jaParts = rule.ja.split(/(?<=、)|(?<=： )|(?<=：(?=[^ ]))/);
+    // 「、」または「:」（半角コロン）の後ろで分割（区切り文字を含む）
+    const jaParts = rule.ja.split(/(?<=、)|(?<=: )|(?<=:(?=[^ ]))/);
 
     jaParts.forEach((part, i) => {
       segments.push({
@@ -1542,9 +1542,9 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
     state.currentSegmentIndex++;
   }
 
-  // 最後のセグメントが「、」や「：」で終わるなら●に変化
+  // 最後のセグメントが「、」や「:」で終わるなら●に変化
   const lastSeg = segmentsToGenerate[segmentsToGenerate.length - 1];
-  if (lastSeg && (lastSeg.jaSegment.endsWith('、') || lastSeg.jaSegment.endsWith('：') || lastSeg.jaSegment.endsWith('： '))) {
+  if (lastSeg && (lastSeg.jaSegment.endsWith('、') || lastSeg.jaSegment.endsWith(':') || lastSeg.jaSegment.endsWith(': '))) {
     transformCaretToThinking();
   }
 
