@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.53';
+const VERSION = '1.0.54';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -147,6 +147,31 @@ async function fetchSheetData(sheetId, options = {}) {
   return parseGoogleSheetResponse(text);
 }
 
+// ルールテキスト内の {id:XXXXXXXX} を #N に置換
+function resolveIdReferences(rules) {
+  // id → num のマップを作成
+  const idToNum = new Map();
+  rules.forEach(rule => {
+    if (rule.id) {
+      idToNum.set(rule.id, rule.num);
+    }
+  });
+
+  // 各ルールのja/enを置換
+  const pattern = /\{id:([a-zA-Z0-9]+)\}/g;
+  return rules.map(rule => ({
+    ...rule,
+    ja: rule.ja.replace(pattern, (match, id) => {
+      const num = idToNum.get(id);
+      return num !== undefined ? `#${num}` : match;
+    }),
+    en: rule.en.replace(pattern, (match, id) => {
+      const num = idToNum.get(id);
+      return num !== undefined ? `#${num}` : match;
+    }),
+  }));
+}
+
 // ========================================
 // ルールの読み込みとセグメント化
 // ========================================
@@ -175,18 +200,21 @@ async function loadRules() {
 
       return {
         num: cells[0]?.v || 0,           // A: num
-        major: cells[1]?.v === true || cells[1]?.v === 'TRUE',  // B: major
-        // cells[2] = ref (skip)
-        ja: cells[3]?.v || '',            // D: ja
-        en: cells[4]?.v || '',            // E: en
+        id: cells[1]?.v || '',           // B: id
+        major: cells[2]?.v === true || cells[2]?.v === 'TRUE',  // C: major
+        ja: cells[3]?.v || '',           // D: ja
+        en: cells[4]?.v || '',           // E: en
         // cells[5] = auto_translate (skip)
-        jankenJa: cells[6]?.v || '',      // G: janken_ja
-        jankenEn: cells[7]?.v || '',      // H: janken_en
+        jankenJa: cells[6]?.v || '',     // G: janken_ja
+        jankenEn: cells[7]?.v || '',     // H: janken_en
         // cells[8] = auto_translate_janken_en (skip)
-        componentJa: cells[9]?.v || '',   // J: component_ja
-        componentEn: cells[10]?.v || '',  // K: component_en
+        componentJa: cells[9]?.v || '',  // J: component_ja
+        componentEn: cells[10]?.v || '', // K: component_en
       };
     }).filter(rule => rule && rule.ja);
+
+    // ID参照を解決（{id:XXXXXXXX} → #N）
+    state.rules = resolveIdReferences(state.rules);
 
     // キャッシュに保存
     localStorage.setItem('cachedRules', JSON.stringify({ version: VERSION, data: state.rules }));
