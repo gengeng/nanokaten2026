@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.65';
+const VERSION = '1.0.66';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -249,8 +249,8 @@ async function loadRules() {
 function prepareSegments(rules) {
   const segments = [];
   rules.forEach(rule => {
-    // 「、」または「:」（半角コロン）の後ろで分割（区切り文字を含む、コロン後のスペースは除去）
-    const jaParts = rule.ja.split(/(?<=、)|(?<=:) ?/);
+    // 「、」または「：」（全角コロン）の後ろで分割（区切り文字を含む）
+    const jaParts = rule.ja.split(/(?<=、)|(?<=： )|(?<=：(?=[^ ]))/);
 
     jaParts.forEach((part, i) => {
       segments.push({
