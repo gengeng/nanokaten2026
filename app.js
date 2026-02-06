@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.54';
+const VERSION = '1.0.55';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -120,7 +120,6 @@ const elements = {
   actionButton: document.getElementById('action-button'),
   actionButtonContainer: document.getElementById('action-button-container'),
   progressFill: document.getElementById('progress-fill'),
-  scrollToBottom: document.getElementById('scroll-to-bottom'),
   gameVersion: document.getElementById('game-version'),
 };
 
@@ -2182,14 +2181,7 @@ function scrollToBottom() {
 function checkScrollPosition() {
   const list = elements.ruleList;
   const isAtBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 50;
-
   state.isAutoScroll = isAtBottom;
-
-  if (isAtBottom) {
-    elements.scrollToBottom.classList.remove('visible');
-  } else {
-    elements.scrollToBottom.classList.add('visible');
-  }
 }
 
 // ========================================
@@ -2203,12 +2195,6 @@ function setupEventListeners() {
   document.addEventListener('contextmenu', (e) => e.preventDefault());
 
   elements.ruleList.addEventListener('scroll', checkScrollPosition);
-
-  elements.scrollToBottom.addEventListener('click', () => {
-    state.isAutoScroll = true;
-    scrollToBottom();
-    elements.scrollToBottom.classList.remove('visible');
-  });
 
   // タイトル5回タップでデバッグモード有効化
   const gameTitle = document.querySelector('.game-title');

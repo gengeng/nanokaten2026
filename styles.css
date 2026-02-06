@@ -348,34 +348,6 @@ body {
 }
 
 /* ========================================
-   最新に戻るボタン
-   ======================================== */
-.scroll-to-bottom {
-  position: absolute;
-  bottom: 175px;
-  right: 40px;
-  background: transparent;
-  border: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.4);
-  cursor: pointer;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s, visibility 0.3s;
-  z-index: 10;
-}
-
-.scroll-to-bottom.visible {
-  opacity: 1;
-  visibility: visible;
-}
-
-.scroll-to-bottom:hover {
-  color: rgba(0, 0, 0, 0.6);
-}
-
-/* ========================================
    下部ボタン
    ======================================== */
 .action-button-container {
