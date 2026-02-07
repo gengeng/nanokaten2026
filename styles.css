@@ -35,6 +35,8 @@ body {
   -webkit-tap-highlight-color: transparent;
   /* ダブルタップズーム無効化 */
   touch-action: manipulation;
+  /* iOS Safariのバウンススクロール防止 */
+  overscroll-behavior: none;
 }
 
 /* コンテナ - 画面全体に対応 */
@@ -65,6 +67,8 @@ body {
   /* スクロールバー非表示 */
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* スクロール端での親要素への伝播を防止 */
+  overscroll-behavior: contain;
 }
 
 .left-panel::-webkit-scrollbar {
@@ -314,6 +318,8 @@ body {
   gap: 64px;
   /* 下部の余白：最後のルールとボタンの間にスペース */
   padding-bottom: 80px;
+  /* スクロール端での親要素への伝播を防止 */
+  overscroll-behavior: contain;
 }
 
 /* ルールアイテム */
