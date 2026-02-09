@@ -94,8 +94,23 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  /* ヘッダー下の区切り線 */
-  border-bottom: 1px solid #000000;
+  /* border-bottom は .stuck 時のみ表示（JSで制御） */
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+/* スティッキー固定時のみ下線を表示 */
+.left-half-header.stuck {
+  border-bottom-color: #000000;
+}
+
+/* スティッキー検出用センチネル（不可視） */
+.sticky-sentinel {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ヘッダーとボディの間 */
@@ -110,9 +125,9 @@ body {
   padding-top: 32px;
 }
 
-/* 英語ヘッダー */
+/* 英語ヘッダー（divider margin で既に32pxあるため padding-top は不要） */
 .left-half-header-en {
-  padding-top: 32px;
+  padding-top: 0;
 }
 
 /* 日英区切り線 */

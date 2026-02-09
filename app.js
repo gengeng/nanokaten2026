@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.77';
+const VERSION = '1.0.78';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -549,6 +549,39 @@ function removeLeftPanelHighlights() {
       row.classList.remove('hl-wipe-out');
     }, { once: true });
   });
+}
+
+// スティッキーヘッダー検出（センチネルが見えなくなったら .stuck 付与）
+function setupStickyObservers() {
+  const leftPanel = elements.leftPanel;
+  if (!leftPanel) return;
+
+  const sentinels = leftPanel.querySelectorAll('.sticky-sentinel');
+  if (!sentinels.length) return;
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        const lang = entry.target.dataset.for; // 'ja' or 'en'
+        const header = leftPanel.querySelector(`.left-half-header-${lang}`);
+        if (!header) return;
+
+        // sentinel が見えている → ヘッダーは通常位置（stuck でない）
+        // sentinel が見えない → ヘッダーが sticky 固定中
+        if (entry.isIntersecting) {
+          header.classList.remove('stuck');
+        } else {
+          header.classList.add('stuck');
+        }
+      });
+    },
+    {
+      root: leftPanel,
+      threshold: 0,
+    }
+  );
+
+  sentinels.forEach((s) => observer.observe(s));
 }
 
 // 左パネル自動スクロール（新アイテムが見えるように）
@@ -2736,6 +2769,9 @@ async function init() {
 
   // 初回の自動更新タイマー開始
   startAutoGenerateTimer();
+
+  // スティッキーヘッダー監視を開始
+  setupStickyObservers();
 
   // デバッグパネルをセットアップ
   setupDebugPanel();
