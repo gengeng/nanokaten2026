@@ -94,6 +94,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* ヘッダー下の区切り線 */
+  border-bottom: 1px solid #000000;
+}
+
+/* ヘッダーとボディの間 */
+.left-half-body {
+  display: flex;
+  flex-direction: column;
+  gap: 35px;
 }
 
 /* 日本語ヘッダー：パネル上端と揃える */
@@ -109,8 +118,7 @@ body {
 /* 日英区切り線 */
 .left-panel-divider {
   border-top: 1px solid #000000;
-  margin: 0 -32px;
-  padding-top: 0;
+  margin: 32px -32px;
 }
 
 /* 旧: タイトル */
