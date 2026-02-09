@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.82';
+const VERSION = '1.0.83';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -300,10 +300,16 @@ function calculateVersion(rules, upToNum) {
   let firstMajorSeen = false;
   for (const rule of rules) {
     if (Number(rule.num) > Number(upToNum)) break;
-    if (rule.firstRule) continue;  // first_ruleはバージョン計算から除外
+    // firstRuleのmajorは「1.0の開始」としてカウントするが、minorは加算しない
+    if (rule.firstRule) {
+      if (rule.major && !firstMajorSeen) {
+        firstMajorSeen = true;
+      }
+      continue;
+    }
     if (rule.major) {
       if (!firstMajorSeen) {
-        // 最初のmajorは1.0の開始（加算しない）
+        // firstRule内にmajorがなかった場合の最初のmajor
         firstMajorSeen = true;
       } else {
         major++;
