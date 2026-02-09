@@ -90,7 +90,7 @@ body {
   /* パネルpadding 32pxを突き抜けて背景を幅いっぱいに */
   margin-left: -32px;
   margin-right: -32px;
-  padding: 0 32px 16px 32px;
+  padding: 0 32px 32px 32px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -102,7 +102,7 @@ body {
 .left-half-body {
   display: flex;
   flex-direction: column;
-  gap: 35px;
+  gap: 32px;
 }
 
 /* 日本語ヘッダー：パネル上端と揃える */
@@ -112,7 +112,7 @@ body {
 
 /* 英語ヘッダー */
 .left-half-header-en {
-  padding-top: 16px;
+  padding-top: 32px;
 }
 
 /* 日英区切り線 */
@@ -213,7 +213,7 @@ body {
 .game-sections {
   display: flex;
   flex-direction: column;
-  gap: 35px;
+  gap: 32px;
 }
 
 /* 各セクション */
