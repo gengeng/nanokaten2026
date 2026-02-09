@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.89';
+const VERSION = '1.0.90';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -619,16 +619,25 @@ function scrollLeftPanelToElement(el) {
   const leftPanel = elements.leftPanel;
   if (!leftPanel || !el) return;
 
+  // stickyヘッダーの高さを取得（ヘッダーに隠れないようオフセット）
+  const leftHalf = el.closest('.left-half');
+  const header = leftHalf?.querySelector('.left-half-header');
+  const headerHeight = header ? header.getBoundingClientRect().height : 0;
+
   const panelRect = leftPanel.getBoundingClientRect();
   const elRect = el.getBoundingClientRect();
 
+  // stickyヘッダー下端を可視領域の上端とみなす
+  const visibleTop = panelRect.top + headerHeight;
+  const margin = 16;
+
   // 要素が表示領域外なら スムーズスクロール
-  if (elRect.top < panelRect.top) {
-    const offset = elRect.top - panelRect.top;
-    leftPanel.scrollBy({ top: offset - 16, behavior: 'smooth' });
+  if (elRect.top < visibleTop) {
+    const offset = elRect.top - visibleTop;
+    leftPanel.scrollBy({ top: offset - margin, behavior: 'smooth' });
   } else if (elRect.bottom > panelRect.bottom) {
     const offset = elRect.bottom - panelRect.bottom;
-    leftPanel.scrollBy({ top: offset + 16, behavior: 'smooth' });
+    leftPanel.scrollBy({ top: offset + margin, behavior: 'smooth' });
   }
 }
 
