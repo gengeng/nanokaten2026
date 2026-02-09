@@ -89,7 +89,7 @@ body {
   /* パネルpadding 32pxを突き抜けて背景を幅いっぱいに */
   margin-left: -32px;
   margin-right: -32px;
-  padding: 0 32px 32px 32px;
+  padding: 0 32px 16px 32px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -219,8 +219,7 @@ body {
 .title-en {
   width: 100%;
   height: auto;
-  /* #666相当のグレーにする */
-  filter: invert(40%) sepia(0%) saturate(0%) brightness(100%);
+  /* #000（黒） */
 }
 
 /* セクション群 */
@@ -278,7 +277,7 @@ body {
 
 /* タイムスタンプ（右寄せ） */
 .content-timestamp {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 400;
   color: #999999;
   line-height: 1.5;
