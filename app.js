@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.87';
+const VERSION = '1.0.88';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -182,15 +182,15 @@ async function loadRules() {
     const data = await fetchSheetData(CONFIG.rulesSheetId);
     const rows = data.table.rows;
 
-    // config列を1行目から取得（config_startRule=M列, config_isPaused=N列）
+    // config列を1行目から取得（config_startRule=N列, config_isPaused=O列）
     const remoteConfig = {};
     if (rows.length > 0 && rows[0].c) {
       const firstRow = rows[0].c;
-      if (firstRow[12]?.v !== undefined && firstRow[12]?.v !== null) {
-        remoteConfig.startRule = firstRow[12].v;
-      }
       if (firstRow[13]?.v !== undefined && firstRow[13]?.v !== null) {
-        remoteConfig.isPaused = firstRow[13].v;
+        remoteConfig.startRule = firstRow[13].v;
+      }
+      if (firstRow[14]?.v !== undefined && firstRow[14]?.v !== null) {
+        remoteConfig.isPaused = firstRow[14].v;
       }
     }
     state.remoteConfig = remoteConfig;
@@ -204,15 +204,16 @@ async function loadRules() {
         num: cells[0]?.v || 0,           // A: num
         id: cells[1]?.v || '',           // B: id
         major: cells[2]?.v === true || cells[2]?.v === 'TRUE',  // C: major
-        firstRule: cells[3]?.v === true || cells[3]?.v === 'TRUE',  // D: first_rule
-        ja: cells[4]?.v || '',           // E: ja
-        en: cells[5]?.v || '',           // F: en
-        // cells[6] = auto_translate (skip)
-        jankenJa: cells[7]?.v || '',     // H: janken_ja
-        jankenEn: cells[8]?.v || '',     // I: janken_en
-        // cells[9] = auto_translate_janken_en (skip)
-        componentJa: cells[10]?.v || '', // K: component_ja
-        componentEn: cells[11]?.v || '', // L: component_en
+        subMajor: cells[3]?.v === true || cells[3]?.v === 'TRUE',  // D: sub_major
+        firstRule: cells[4]?.v === true || cells[4]?.v === 'TRUE',  // E: first_rule
+        ja: cells[5]?.v || '',           // F: ja
+        en: cells[6]?.v || '',           // G: en
+        // cells[7] = auto_translate (skip)
+        jankenJa: cells[8]?.v || '',     // I: janken_ja
+        jankenEn: cells[9]?.v || '',     // J: janken_en
+        // cells[10] = auto_translate_janken_en (skip)
+        componentJa: cells[11]?.v || '', // L: component_ja
+        componentEn: cells[12]?.v || '', // M: component_en
       };
     }).filter(rule => rule && rule.ja);
 
@@ -279,6 +280,7 @@ function prepareSegments(rules) {
         jankenJa: i === 0 ? rule.jankenJa : '',
         jankenEn: i === 0 ? rule.jankenEn : '',
         major: i === 0 ? rule.major : false,
+        subMajor: i === 0 ? rule.subMajor : false,
         firstRule: rule.firstRule,  // 全セグメントに伝搬（isLastでもfirstRule判定に使う）
       });
     });
@@ -293,14 +295,15 @@ let componentCount = 0;  // 表示済み内容物の数
 let handsCount = 0;      // 表示済みじゃんけんの手の数
 let leftPanelQueue = Promise.resolve();  // 左パネルタイプライターのキュー
 
-// 指定ルール番号までのバージョンを計算
+// 指定ルール番号までのバージョンを計算（v.major.subMajor.minor）
 function calculateVersion(rules, upToNum) {
   let major = 1;
+  let subMajor = 0;
   let minor = 0;
   let firstMajorSeen = false;
   for (const rule of rules) {
     if (Number(rule.num) > Number(upToNum)) break;
-    // firstRuleのmajorは「1.0の開始」としてカウントするが、minorは加算しない
+    // firstRuleのmajorは「1.0.0の開始」としてカウントするが、バージョンは加算しない
     if (rule.firstRule) {
       if (rule.major && !firstMajorSeen) {
         firstMajorSeen = true;
@@ -314,12 +317,16 @@ function calculateVersion(rules, upToNum) {
       } else {
         major++;
       }
+      subMajor = 0;
+      minor = 0;
+    } else if (rule.subMajor) {
+      subMajor++;
       minor = 0;
     } else {
       minor++;
     }
   }
-  return { major, minor };
+  return { major, subMajor, minor };
 }
 
 // タイムスタンプフォーマット
@@ -332,8 +339,8 @@ function formatTimestamp(date) {
   return `${y}-${m}-${d} ${h}:${min}`;
 }
 
-function updateVersionDisplay(major, minor, animate = true) {
-  const newText = `${major}.${minor}`;
+function updateVersionDisplay(major, subMajor, minor, animate = true) {
+  const newText = `${major}.${subMajor}.${minor}`;
 
   // 日英2つのバージョンバッジを同時更新
   ['ver-digits-ja', 'ver-digits-en'].forEach(id => {
@@ -793,17 +800,17 @@ function makeCurrentRuleBlack() {
   const isFirstOfFirstRules = state.currentNumberElement?.dataset.firstOfFirstRules === 'true';
   if (state.currentVersionElement && state.currentNumberElement) {
     if (isFirstOfFirstRules) {
-      // 最初のfirstRuleはv.1.0固定
-      state.currentVersionElement.textContent = 'v.1.0';
+      // 最初のfirstRuleはv.1.0.0固定
+      state.currentVersionElement.textContent = 'v.1.0.0';
       state.currentVersionElement.classList.remove('generating');
     } else if (!isFirstRule) {
       // 通常ルール
       const num = state.currentNumberElement.dataset.num;
       const ver = calculateVersion(state.rules, num);
-      state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
+      state.currentVersionElement.textContent = `v.${ver.major}.${ver.subMajor}.${ver.minor}`;
       state.currentVersionElement.classList.remove('generating');
       // タイトル下のバージョンも同時に更新
-      updateVersionDisplay(ver.major, ver.minor);
+      updateVersionDisplay(ver.major, ver.subMajor, ver.minor);
     }
   }
   if (state.currentTimestampElement) {
@@ -1536,9 +1543,9 @@ function displayInitialRules() {
         // バージョンとタイムスタンプも即時表示（最初のfirstRuleはv.1.0を表示、2行目以降のfirstRuleは非表示）
         if (!segment.firstRule || isFirstOfFirstRules) {
           const ver = segment.firstRule
-            ? { major: 1, minor: 0 }  // #0は常にv.1.0
+            ? { major: 1, subMajor: 0, minor: 0 }  // #0は常にv.1.0.0
             : calculateVersion(state.rules, segment.num);
-          versionElement.textContent = `v.${ver.major}.${ver.minor}`;
+          versionElement.textContent = `v.${ver.major}.${ver.subMajor}.${ver.minor}`;
           versionElement.classList.remove('generating');
 
           const now = new Date();
@@ -1572,7 +1579,7 @@ function displayInitialRules() {
       // 完了ルールにもバージョンとタイムスタンプを即時表示（firstRuleは除く）
       if (!segment.firstRule && state.currentVersionElement && !state.currentVersionElement.textContent) {
         const ver = calculateVersion(state.rules, segment.num);
-        state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
+        state.currentVersionElement.textContent = `v.${ver.major}.${ver.subMajor}.${ver.minor}`;
         state.currentVersionElement.classList.remove('generating');
 
         const now = new Date();
@@ -1602,7 +1609,7 @@ function displayInitialRules() {
   const lastDisplayedNum = state.segments[initialEndIndex]?.num;
   if (lastDisplayedNum) {
     const ver = calculateVersion(state.rules, lastDisplayedNum);
-    updateVersionDisplay(ver.major, ver.minor, false);
+    updateVersionDisplay(ver.major, ver.subMajor, ver.minor, false);
   }
 
   console.log(`Initial display complete. Next segment index: ${state.currentSegmentIndex}`);
@@ -2547,11 +2554,11 @@ function startRemoteConfigPolling() {
       if (!firstRow) return;
 
       const config = {};
-      if (firstRow[12]?.v !== undefined && firstRow[12]?.v !== null) {
-        config.startRule = firstRow[12].v;  // M列: config_startRule
-      }
       if (firstRow[13]?.v !== undefined && firstRow[13]?.v !== null) {
-        config.isPaused = firstRow[13].v;   // N列: config_isPaused
+        config.startRule = firstRow[13].v;  // N列: config_startRule
+      }
+      if (firstRow[14]?.v !== undefined && firstRow[14]?.v !== null) {
+        config.isPaused = firstRow[14].v;   // O列: config_isPaused
       }
       state.remoteConfig = config;
 
