@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.84';
+const VERSION = '1.0.85';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -417,15 +417,15 @@ function addComponentInstant(ja, en) {
   const count = Math.max(jaItems.length, enItems.length);
   const ts = formatTimestamp(new Date());
 
-  // 逆順で追加（prepend なので最後のアイテムが一番上に来るように）
-  for (let i = count - 1; i >= 0; i--) {
+  // 正順で末尾に追加（新着が下）
+  for (let i = 0; i < count; i++) {
     // 日本語リストに追加
     if (jaItems[i]) {
-      elements.componentsListJa.prepend(createLeftPanelRow(jaItems[i], ts, false));
+      elements.componentsListJa.append(createLeftPanelRow(jaItems[i], ts, false));
     }
     // 英語リストに追加
     if (enItems[i]) {
-      elements.componentsListEn.prepend(createLeftPanelRow(enItems[i], ts, true));
+      elements.componentsListEn.append(createLeftPanelRow(enItems[i], ts, true));
     }
     componentCount++;
   }
@@ -438,15 +438,15 @@ function addHandInstant(ja, en) {
   const count = Math.max(jaItems.length, enItems.length);
   const ts = formatTimestamp(new Date());
 
-  // 逆順で追加（prepend なので最後のアイテムが一番上に来るように）
-  for (let i = count - 1; i >= 0; i--) {
+  // 正順で末尾に追加（新着が下）
+  for (let i = 0; i < count; i++) {
     // 日本語リストに追加
     if (jaItems[i]) {
-      elements.handsListJa.prepend(createLeftPanelRow(jaItems[i], ts, false));
+      elements.handsListJa.append(createLeftPanelRow(jaItems[i], ts, false));
     }
     // 英語リストに追加
     if (enItems[i]) {
-      elements.handsListEn.prepend(createLeftPanelRow(enItems[i], ts, true));
+      elements.handsListEn.append(createLeftPanelRow(enItems[i], ts, true));
     }
     handsCount++;
   }
@@ -508,8 +508,8 @@ async function typewriterLeftPanel(type, ja, en) {
     // 高さ展開：max-height: 0 → 実際の高さ（両方のリストに追加）
     jaRow.classList.add('expanding');
     enRow.classList.add('expanding');
-    jaListEl.prepend(jaRow);
-    enListEl.prepend(enRow);
+    jaListEl.append(jaRow);
+    enListEl.append(enRow);
 
     // 新アイテムが見えるようにスクロール
     scrollLeftPanelToElement(jaRow);
@@ -2536,7 +2536,7 @@ window.getState = function() {
 // リモート設定（ルールシートのconfig列から取得）
 // ========================================
 function startRemoteConfigPolling() {
-  // 1分ごとにルールシートからリモート設定を確認
+  // 30秒ごとにルールシートからリモート設定を確認
   setInterval(async () => {
     try {
       const data = await fetchSheetData(CONFIG.rulesSheetId);
@@ -2547,11 +2547,11 @@ function startRemoteConfigPolling() {
       if (!firstRow) return;
 
       const config = {};
-      if (firstRow[11]?.v !== undefined && firstRow[11]?.v !== null) {
-        config.startRule = firstRow[11].v;
-      }
       if (firstRow[12]?.v !== undefined && firstRow[12]?.v !== null) {
-        config.isPaused = firstRow[12].v;
+        config.startRule = firstRow[12].v;  // M列: config_startRule
+      }
+      if (firstRow[13]?.v !== undefined && firstRow[13]?.v !== null) {
+        config.isPaused = firstRow[13].v;   // N列: config_isPaused
       }
       state.remoteConfig = config;
 
@@ -2585,7 +2585,7 @@ function startRemoteConfigPolling() {
     } catch (e) {
       console.error('Remote config polling failed:', e);
     }
-  }, 60000); // 1分間隔
+  }, 30000); // 30秒間隔
 }
 
 // ========================================
