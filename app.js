@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.73';
+const VERSION = '1.0.74';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -699,6 +699,8 @@ function makeCurrentRuleBlack() {
     const ver = calculateVersion(state.rules, num);
     state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
     state.currentVersionElement.classList.remove('generating');
+    // タイトル下のバージョンも同時に更新
+    updateVersionDisplay(ver.major, ver.minor);
   }
   if (state.currentTimestampElement) {
     const now = new Date();
@@ -1568,13 +1570,6 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   // 生成するセグメントと総文字数を計算
   const { segments: segmentsToGenerate, totalChars } = calculateSegmentsToGenerate();
   console.log(`Total chars: ${totalChars}`);
-
-  // バージョン更新（ボタン押下時に即反映）
-  const lastSegInBatch = segmentsToGenerate[segmentsToGenerate.length - 1];
-  if (lastSegInBatch) {
-    const ver = calculateVersion(state.rules, lastSegInBatch.num);
-    updateVersionDisplay(ver.major, ver.minor);
-  }
 
   // ゲージタイマー開始（モーション完了後に増加開始）
   startGaugeTimer();

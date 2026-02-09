@@ -354,7 +354,7 @@ body {
 .rule-number-text {
   font-size: 24px;
   font-weight: 700;
-  color: #999999;
+  color: #000000;
   line-height: 1.5;
   transition: color 0.5s ease-out;
 }
