@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.83';
+const VERSION = '1.0.84';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -279,7 +279,7 @@ function prepareSegments(rules) {
         jankenJa: i === 0 ? rule.jankenJa : '',
         jankenEn: i === 0 ? rule.jankenEn : '',
         major: i === 0 ? rule.major : false,
-        firstRule: i === 0 ? rule.firstRule : false,
+        firstRule: rule.firstRule,  // 全セグメントに伝搬（isLastでもfirstRule判定に使う）
       });
     });
   });
