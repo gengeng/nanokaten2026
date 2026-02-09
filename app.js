@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.71';
+const VERSION = '1.0.72';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -429,26 +429,45 @@ async function typewriterLeftPanel(type, ja, en) {
     // 日本語span
     const jaSpan = document.createElement('span');
     jaSpan.className = 'content-ja';
+    jaSpan.textContent = '\u200B';  // 高さ確保用プレースホルダー
 
     // 英語span
     const enSpan = document.createElement('span');
     enSpan.className = 'content-en';
+    enSpan.textContent = '\u200B';
 
     row.appendChild(jaSpan);
     row.appendChild(enSpan);
 
-    // 新着を上に追加（スライドインアニメーション）
-    row.classList.add('content-row-entering');
+    // 高さ展開：max-height: 0 → 実際の高さ
+    row.classList.add('expanding');
     listEl.prepend(row);
     rows.push(row);
 
-    // 日本語をタイプライター表示
+    // 次フレームで展開開始
+    requestAnimationFrame(() => {
+      row.style.maxHeight = row.scrollHeight + 'px';
+    });
+
+    // 高さ展開完了を待つ (200ms + 余裕50ms)
+    await delay(250);
+    row.classList.add('expand-done');  // overflow: visible に切り替え
+
+    // ラグ（展開完了→ワイプイン）
+    await delay(150);
+
+    // 黒帯ワイプイン（テキストより先に出現）
+    row.classList.add('hl-active', 'hl-wipe-in');
+    await delay(400);  // ワイプイン200ms + 余韻200ms
+
+    // 黒帯の上に白文字でタイプライター表示
+    // 日本語
     for (const char of jaText) {
       jaSpan.appendChild(document.createTextNode(char));
       await delay(getTypewriterDelay(char));
     }
 
-    // 英語をタイプライター表示
+    // 英語
     for (const char of enText) {
       enSpan.appendChild(document.createTextNode(char));
       await delay(getTypewriterDelayEn(char));
@@ -461,32 +480,19 @@ async function typewriterLeftPanel(type, ja, en) {
     }
   }
 
-  // すべてのタイプライター完了後、全行にハイライトアニメーション
-  // 1. ハイライト出現（左→右）
-  rows.forEach(row => row.classList.add('hl-active', 'hl-wipe-in'));
-  await delay(350);
-
-  // 2. ハイライト解除（左→右）
-  rows.forEach(row => {
-    row.classList.remove('hl-wipe-in');
-    row.classList.add('hl-wipe-out', 'hl-fade-text');
-  });
-  await delay(350);
-
-  // 3. クリーンアップ
-  rows.forEach(row => {
-    row.classList.remove('hl-active', 'hl-wipe-out', 'hl-fade-text');
-  });
+  // ハイライトは次の generateUntilNextBreakpoint() で removeLeftPanelHighlights() が呼ばれるまで維持
 }
 
-// 左パネルハイライト解除（新しい行全体ハイライト用）
+// 左パネルハイライト解除（黒帯退場 + テキスト即黒）
 function removeLeftPanelHighlights() {
   const rows = document.querySelectorAll('.content-row.hl-active');
   rows.forEach(row => {
-    row.classList.remove('hl-wipe-in');
-    row.classList.add('hl-wipe-out', 'hl-fade-text');
+    // テキストを即座に黒に（帯はz-index:-1なのでテキストの後ろ → 黒文字が帯の上に見える）
+    row.classList.remove('hl-active', 'hl-wipe-in');
+    // 黒帯をワイプアウト（左→右に退場）
+    row.classList.add('hl-wipe-out');
     row.addEventListener('animationend', () => {
-      row.classList.remove('hl-active', 'hl-wipe-out', 'hl-fade-text');
+      row.classList.remove('hl-wipe-out');
     }, { once: true });
   });
 }
@@ -1517,18 +1523,7 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
       return;  // forループを抜けて生成終了
     }
 
-    // ルールの最後なら英語をタイプライター表示
-    if (seg.isLast && seg.enFull) {
-      removeCurrentCaret();
-      await typewriterEnWithProgress(seg.enFull, charsDone, totalChars);
-      charsDone += seg.enFull.length;
-      // じわっと黒にフェード
-      makeCurrentRuleBlack();
-      // アニメーション完了を待つ（英語→次の番号への間）
-      await delay(state.pauseEnToNum * 100);
-    }
-
-    // ルール完了後に左カラム表示を発火（右パネルと並行）
+    // 日本語完了・英語表示前に左カラム表示を発火（右パネルと並行）
     if (seg.isLast) {
       if (state.pendingComponent) {
         queueLeftPanelTypewriter('component', state.pendingComponent.ja, state.pendingComponent.en);
@@ -1538,6 +1533,17 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
         queueLeftPanelTypewriter('hands', state.pendingHands.ja, state.pendingHands.en);
         state.pendingHands = null;
       }
+    }
+
+    // ルールの最後なら英語をタイプライター表示
+    if (seg.isLast && seg.enFull) {
+      removeCurrentCaret();
+      await typewriterEnWithProgress(seg.enFull, charsDone, totalChars);
+      charsDone += seg.enFull.length;
+      // じわっと黒にフェード
+      makeCurrentRuleBlack();
+      // アニメーション完了を待つ（英語→次の番号への間）
+      await delay(state.pauseEnToNum * 100);
     }
 
     state.currentSegmentIndex++;

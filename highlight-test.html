@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>黒帯ワイプイン検証</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', sans-serif;
+      background: #fff;
+      padding: 40px;
+    }
+
+    h1 { font-size: 18px; margin-bottom: 20px; }
+
+    /* ===== コントロールパネル ===== */
+    .controls {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .controls label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .controls input[type="range"] { width: 200px; }
+    .controls .value { font-weight: bold; min-width: 50px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-row button {
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 1px solid #000;
+      background: #fff;
+    }
+    .btn-row button:hover { background: #000; color: #fff; }
+    .toggle-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .toggle-row label { font-size: 12px; }
+
+    /* ===== 本番再現エリア ===== */
+    .test-area {
+      width: 350px;
+      padding: 32px;
+      border: 1px solid #000;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .header-ja { font-size: 20px; font-weight: 600; }
+    .header-en { font-size: 16px; font-weight: 600; font-family: 'SF Mono', monospace; }
+
+    /* gapではなくmargin-topで間隔を制御（展開アニメーションと干渉しないため） */
+    .section-content {
+      display: flex;
+      flex-direction: column;
+    }
+    .section-content > .content-row + .content-row {
+      margin-top: 4px;
+    }
+
+    /* ===== content-row ===== */
+    .content-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    /* 高さ展開中 */
+    .content-row.expanding {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--expand-duration, 0.3s) ease-out;
+    }
+    /* 展開完了後: overflow だけ解除（::before を見せるため） */
+    .content-row.expand-done {
+      overflow: visible;
+    }
+
+    .content-ja {
+      font-size: 14px;
+      font-weight: 500;
+      color: #000;
+      line-height: 1.5;
+    }
+    .content-en {
+      font-size: 14px;
+      font-weight: 500;
+      color: #000;
+      line-height: 1.5;
+      font-family: 'SF Mono', monospace;
+      text-align: right;
+    }
+
+    /* ===== ハイライト背景 ===== */
+    .content-row::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #000;
+      z-index: 0;
+      clip-path: inset(0 100% 0 0);
+    }
+    .content-row .content-ja,
+    .content-row .content-en {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ===== ハイライト中テキスト白 ===== */
+    .content-row.hl-active .content-ja,
+    .content-row.hl-active .content-en {
+      color: #FFF;
+    }
+
+    /* ===== ワイプイン ===== */
+    .content-row.hl-wipe-in::before {
+      animation: hl-wipe-in var(--wipe-in-duration, 0.35s) ease-out forwards;
+    }
+    @keyframes hl-wipe-in {
+      from { clip-path: inset(0 100% 0 0); }
+      to   { clip-path: inset(0 0 0 0); }
+    }
+
+    /* ===== ワイプアウト ===== */
+    .content-row.hl-wipe-out::before {
+      animation: hl-wipe-out 0.35s ease-out forwards;
+    }
+    @keyframes hl-wipe-out {
+      from { clip-path: inset(0 0 0 0); }
+      to   { clip-path: inset(0 0 0 100%); }
+    }
+
+    /* ===== ログ ===== */
+    .log {
+      margin-top: 20px;
+      font-size: 11px;
+      color: #666;
+      font-family: 'SF Mono', monospace;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>黒帯ワイプイン検証</h1>
+
+  <div class="controls">
+    <label>
+      高さ展開 duration:
+      <input type="range" id="expand-dur" min="100" max="1000" value="300" step="50">
+      <span class="value" id="expand-dur-val">300ms</span>
+    </label>
+    <label>
+      ラグ（展開完了→ワイプイン）:
+      <input type="range" id="lag" min="0" max="1000" value="200" step="50">
+      <span class="value" id="lag-val">200ms</span>
+    </label>
+    <label>
+      ワイプイン duration:
+      <input type="range" id="wipe-dur" min="100" max="1500" value="350" step="50">
+      <span class="value" id="wipe-dur-val">350ms</span>
+    </label>
+    <label>
+      余韻（ワイプイン→タイプライター）:
+      <input type="range" id="afterglow" min="0" max="1000" value="300" step="50">
+      <span class="value" id="afterglow-val">300ms</span>
+    </label>
+
+    <div class="btn-row">
+      <button id="btn-add">行を追加（フルシーケンス）</button>
+      <button id="btn-wipe-out">ハイライト解除</button>
+      <button id="btn-reset">リセット</button>
+    </div>
+  </div>
+
+  <div class="test-area" id="test-area">
+    <div class="section-header">
+      <span class="header-ja">手</span>
+      <span class="header-en">Hands</span>
+    </div>
+    <div class="section-content" id="list">
+    </div>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <script>
+    const list = document.getElementById('list');
+    const logEl = document.getElementById('log');
+
+    const expandDurSlider = document.getElementById('expand-dur');
+    const lagSlider = document.getElementById('lag');
+    const wipeDurSlider = document.getElementById('wipe-dur');
+    const afterglowSlider = document.getElementById('afterglow');
+
+    expandDurSlider.oninput = () => document.getElementById('expand-dur-val').textContent = expandDurSlider.value + 'ms';
+    lagSlider.oninput = () => document.getElementById('lag-val').textContent = lagSlider.value + 'ms';
+    wipeDurSlider.oninput = () => document.getElementById('wipe-dur-val').textContent = wipeDurSlider.value + 'ms';
+    afterglowSlider.oninput = () => document.getElementById('afterglow-val').textContent = afterglowSlider.value + 'ms';
+
+    const delay = ms => new Promise(r => setTimeout(r, ms));
+
+    function log(msg) {
+      const now = new Date();
+      const ts = now.toLocaleTimeString('ja-JP', { hour12: false }) + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      logEl.textContent = `[${ts}] ${msg}\n` + logEl.textContent;
+    }
+
+    const items = [
+      { ja: 'グー', en: 'Rock' },
+      { ja: 'チョキ', en: 'Scissors' },
+      { ja: 'パー', en: 'Paper' },
+      { ja: '核', en: 'Nuke' },
+      { ja: '鏡', en: 'Mirror' },
+    ];
+    let itemIndex = 0;
+
+    document.getElementById('btn-add').addEventListener('click', async () => {
+      const item = items[itemIndex % items.length];
+      itemIndex++;
+
+      const expandDur = parseInt(expandDurSlider.value);
+      const lag = parseInt(lagSlider.value);
+      const wipeDur = parseInt(wipeDurSlider.value);
+      const afterglow = parseInt(afterglowSlider.value);
+
+      // 行を作成
+      const row = document.createElement('div');
+      row.className = 'content-row expanding';
+      row.style.setProperty('--expand-duration', expandDur + 'ms');
+
+      const jaSpan = document.createElement('span');
+      jaSpan.className = 'content-ja';
+      // 不可視のプレースホルダーで行の高さを確保
+      jaSpan.textContent = '\u200B';  // zero-width space
+      const enSpan = document.createElement('span');
+      enSpan.className = 'content-en';
+      enSpan.textContent = '\u200B';
+      row.appendChild(jaSpan);
+      row.appendChild(enSpan);
+
+      // DOM に追加（max-height: 0 の状態）
+      list.prepend(row);
+      log(`行追加: "${item.ja}" (max-height: 0)`);
+
+      // 実際の高さを取得して max-height を設定 → 展開アニメーション開始
+      requestAnimationFrame(() => {
+        const naturalHeight = row.scrollHeight;
+        row.style.maxHeight = naturalHeight + 'px';
+        log(`高さ展開開始 → ${naturalHeight}px (${expandDur}ms)`);
+      });
+
+      // 高さ展開完了を待つ
+      await delay(expandDur + 50);
+      // overflow だけ visible に切り替え（max-height, transition はそのまま維持）
+      row.classList.add('expand-done');
+      log(`高さ展開完了`);
+
+      // ラグ（展開完了→ワイプイン）
+      await delay(lag);
+      log(`ラグ完了 (${lag}ms)`);
+
+      // ワイプイン duration を CSS変数で設定
+      row.style.setProperty('--wipe-in-duration', wipeDur + 'ms');
+
+      // 黒帯ワイプイン
+      row.classList.add('hl-active', 'hl-wipe-in');
+      log(`hl-active + hl-wipe-in 追加 (duration=${wipeDur}ms)`);
+
+      // ワイプイン + 余韻を待つ
+      await delay(wipeDur + afterglow);
+      log(`ワイプイン完了 + 余韻 (${afterglow}ms)`);
+
+      // タイプライター（日本語）
+      for (const char of item.ja) {
+        jaSpan.appendChild(document.createTextNode(char));
+        await delay(80);
+      }
+      log('日本語タイプライター完了');
+
+      // タイプライター（英語）
+      for (const char of item.en) {
+        enSpan.appendChild(document.createTextNode(char));
+        await delay(60);
+      }
+      log('英語タイプライター完了');
+    });
+
+    document.getElementById('btn-wipe-out').addEventListener('click', () => {
+      const rows = list.querySelectorAll('.content-row.hl-active');
+      rows.forEach(row => {
+        row.classList.remove('hl-active', 'hl-wipe-in');
+        row.classList.add('hl-wipe-out');
+        row.addEventListener('animationend', () => {
+          row.classList.remove('hl-wipe-out');
+        }, { once: true });
+      });
+      log(`ハイライト解除: ${rows.length}行`);
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      list.innerHTML = '';
+      itemIndex = 0;
+      logEl.textContent = '';
+      log('リセット');
+    });
+  </script>
+</body>
+</html>

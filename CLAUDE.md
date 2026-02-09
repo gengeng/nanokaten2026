@@ -150,4 +150,4 @@ generating → idle:
 
 ## TODO
 
-- [ ] iPadからスプレッドシートに現在のルール番号を送信する機能（Google Sheets API直接書き込み）
+- [x] iPadからスプレッドシートに現在のルール番号を送信する機能（Google Sheets API直接書き込み）

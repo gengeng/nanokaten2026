@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>clip-path 最小テスト</title>
+<style>
+  body { padding: 40px; font-family: sans-serif; background: #fff; }
+
+  /* テスト1: clip-path animation */
+  .test-box {
+    position: relative;
+    width: 300px;
+    height: 40px;
+    margin: 20px 0;
+    border: 1px dashed #ccc;
+  }
+  .test-box::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; left: 0; right: 0;
+    background: #000;
+  }
+
+  /* A: clip-path animation */
+  .test-a::before {
+    animation: wipe 1s ease-out forwards;
+  }
+  @keyframes wipe {
+    from { clip-path: inset(0 100% 0 0); }
+    to   { clip-path: inset(0 0 0 0); }
+  }
+
+  /* B: clip-path transition（クリックでトグル） */
+  .test-b::before {
+    clip-path: inset(0 100% 0 0);
+    transition: clip-path 1s ease-out;
+  }
+  .test-b.active::before {
+    clip-path: inset(0 0 0 0);
+  }
+
+  /* C: width animation（clip-pathが使えない場合の代替） */
+  .test-c::before {
+    width: 0;
+    animation: wipe-width 1s ease-out forwards;
+  }
+  @keyframes wipe-width {
+    from { width: 0; }
+    to   { width: 100%; }
+  }
+
+  /* D: transform scaleX */
+  .test-d::before {
+    transform-origin: left center;
+    animation: wipe-scale 1s ease-out forwards;
+  }
+  @keyframes wipe-scale {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+
+  button {
+    padding: 8px 16px;
+    cursor: pointer;
+    margin: 10px 0;
+  }
+  .label { font-size: 12px; color: #666; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <h2>clip-path / width / scaleX 比較テスト</h2>
+  <p>ページロード時に全部同時にアニメーション開始</p>
+
+  <div class="label">A: clip-path animation (from inset(0 100% 0 0) to inset(0 0 0 0))</div>
+  <div class="test-box test-a"></div>
+
+  <div class="label">B: clip-path transition (クリックでトグル)</div>
+  <div class="test-box test-b" id="test-b"></div>
+  <button onclick="document.getElementById('test-b').classList.toggle('active')">B をトグル</button>
+
+  <div class="label">C: width animation (0 → 100%)</div>
+  <div class="test-box test-c"></div>
+
+  <div class="label">D: transform scaleX (0 → 1)</div>
+  <div class="test-box test-d"></div>
+</body>
+</html>

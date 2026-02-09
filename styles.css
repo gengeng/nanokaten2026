@@ -185,10 +185,13 @@ body {
 }
 
 /* セクションコンテンツ：行ごとの日英ペア */
+/* gapではなくmargin-topで間隔制御（高さ展開アニメーションと干渉しないため） */
 .section-content {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+}
+.section-content > .content-row + .content-row {
+  margin-top: 4px;
 }
 
 /* 各行：日英ペア（日本語左、英語右） */
@@ -230,20 +233,15 @@ body {
   text-align: right;
 }
 
-/* 新規行追加アニメーション */
-.content-row-entering {
-  animation: content-row-slide-in 0.3s ease-out;
+/* 行追加：高さ展開アニメーション */
+.content-row.expanding {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
 }
-
-@keyframes content-row-slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* 展開完了後: overflow だけ解除（::before を見せるため） */
+.content-row.expand-done {
+  overflow: visible;
 }
 
 /* 左パネルハイライト（行全体） */
@@ -257,11 +255,18 @@ body {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -4px;
-  right: -4px;
+  left: 0;
+  right: 0;
   background: #000;
-  z-index: -1;
-  clip-path: inset(0 100% 0 0);  /* 初期状態：非表示 */
+  z-index: 0;
+  clip-path: inset(0 100% 0 0);
+}
+
+/* テキストを黒帯の前面に表示 */
+.content-ja,
+.content-en {
+  position: relative;
+  z-index: 1;
 }
 
 /* ハイライト中のテキスト色 */
@@ -272,7 +277,7 @@ body {
 
 /* ハイライト出現（左→右） */
 .content-row.hl-wipe-in::before {
-  animation: hl-wipe-in 0.35s ease-out forwards;
+  animation: hl-wipe-in 0.2s ease-out forwards;
 }
 
 @keyframes hl-wipe-in {
@@ -280,7 +285,7 @@ body {
   to { clip-path: inset(0 0 0 0); }
 }
 
-/* ハイライト解除（左→右） */
+/* ハイライト解除（左→右に黒帯退場） */
 .content-row.hl-wipe-out::before {
   animation: hl-wipe-out 0.35s ease-out forwards;
 }
@@ -288,12 +293,6 @@ body {
 @keyframes hl-wipe-out {
   from { clip-path: inset(0 0 0 0); }
   to { clip-path: inset(0 0 0 100%); }
-}
-
-/* ハイライト解除後のテキスト色遷移 */
-.content-row.hl-fade-text .content-ja,
-.content-row.hl-fade-text .content-en {
-  transition: color 0.35s ease-out;
 }
 
 /* ========================================
