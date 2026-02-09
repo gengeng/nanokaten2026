@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.79';
+const VERSION = '1.0.80';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -75,6 +75,7 @@ const state = {
   currentCaret: null,         // 画面上の唯一のキャレット
   pendingComponent: null,     // ルール完了後に左カラム表示する内容物データ
   pendingHands: null,         // ルール完了後に左カラム表示する手データ
+  firstRuleSeen: false,       // 最初のfirstRule（#0）が表示済みかどうか
 
   // デバッグ用設定（リアルタイム変更可能）
   gaugeDuration: CONFIG.gaugeDuration,
@@ -701,6 +702,7 @@ class Typewriter {
 // ========================================
 function createRuleElement(num, options = {}) {
   const isFirstRule = options.firstRule || false;
+  const isFirstOfFirstRules = options.firstOfFirstRules || false; // 最初の#0（番号+ver+ts表示）
 
   const ruleElement = document.createElement('div');
   ruleElement.className = 'rule-item';
@@ -716,6 +718,9 @@ function createRuleElement(num, options = {}) {
   if (isFirstRule) {
     numberElement.dataset.firstRule = 'true';
   }
+  if (isFirstOfFirstRules) {
+    numberElement.dataset.firstOfFirstRules = 'true';
+  }
 
   const versionElement = document.createElement('span');
   versionElement.className = 'rule-version generating';
@@ -725,10 +730,9 @@ function createRuleElement(num, options = {}) {
   timestampElement.className = 'rule-timestamp generating';
   timestampElement.textContent = '';
 
-  // first_rule はバージョン・タイムスタンプを非表示
-  if (isFirstRule) {
-    versionElement.style.display = 'none';
-    timestampElement.style.display = 'none';
+  // firstRuleの2行目以降は番号エリアごと非表示
+  if (isFirstRule && !isFirstOfFirstRules) {
+    numberArea.style.display = 'none';
   }
 
   numberArea.appendChild(numberElement);
@@ -771,23 +775,39 @@ function makeCurrentRuleBlack() {
     el.classList.remove('generating');
   });
 
-  // バージョンとタイムスタンプを表示（生成完了時、firstRuleは除く）
+  // バージョンとタイムスタンプを表示（生成完了時）
   const isFirstRule = state.currentNumberElement?.dataset.firstRule === 'true';
-  if (!isFirstRule && state.currentVersionElement && state.currentNumberElement) {
-    const num = state.currentNumberElement.dataset.num;
-    const ver = calculateVersion(state.rules, num);
-    state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
-    state.currentVersionElement.classList.remove('generating');
-    // タイトル下のバージョンも同時に更新
-    updateVersionDisplay(ver.major, ver.minor);
+  const isFirstOfFirstRules = state.currentNumberElement?.dataset.firstOfFirstRules === 'true';
+  if (state.currentVersionElement && state.currentNumberElement) {
+    if (isFirstOfFirstRules) {
+      // 最初のfirstRuleはv.1.0固定
+      state.currentVersionElement.textContent = 'v.1.0';
+      state.currentVersionElement.classList.remove('generating');
+    } else if (!isFirstRule) {
+      // 通常ルール
+      const num = state.currentNumberElement.dataset.num;
+      const ver = calculateVersion(state.rules, num);
+      state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
+      state.currentVersionElement.classList.remove('generating');
+      // タイトル下のバージョンも同時に更新
+      updateVersionDisplay(ver.major, ver.minor);
+    }
   }
-  if (!isFirstRule && state.currentTimestampElement) {
-    const now = new Date();
-    const ts = formatTimestamp(now);
-    // 右パネルでは改行して表示: "2026-12-31\n23:59"
-    const parts = ts.split(' ');
-    state.currentTimestampElement.textContent = parts.join('\n');
-    state.currentTimestampElement.classList.remove('generating');
+  if (state.currentTimestampElement) {
+    if (isFirstOfFirstRules) {
+      // 最初のfirstRuleはタイムスタンプも表示
+      const now = new Date();
+      const ts = formatTimestamp(now);
+      const parts = ts.split(' ');
+      state.currentTimestampElement.textContent = parts.join('\n');
+      state.currentTimestampElement.classList.remove('generating');
+    } else if (!isFirstRule) {
+      const now = new Date();
+      const ts = formatTimestamp(now);
+      const parts = ts.split(' ');
+      state.currentTimestampElement.textContent = parts.join('\n');
+      state.currentTimestampElement.classList.remove('generating');
+    }
   }
 }
 
@@ -1480,14 +1500,18 @@ function displayInitialRules() {
 
     // 新しいルール番号なら要素を作成
     if (segment.isFirst) {
-      const { numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(segment.num, { firstRule: segment.firstRule });
+      // firstRuleの最初の1つかどうか判定
+      const isFirstOfFirstRules = segment.firstRule && !state.firstRuleSeen;
+      if (segment.firstRule) state.firstRuleSeen = true;
+
+      const { numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(segment.num, { firstRule: segment.firstRule, firstOfFirstRules: isFirstOfFirstRules });
       state.currentNumberElement = numberElement;
       state.currentVersionElement = versionElement;
       state.currentTimestampElement = timestampElement;
       state.currentJaElement = jaElement;
       state.currentEnElement = enElement;
 
-      // 初期表示なので番号を即座に設定（firstRuleは#0として表示）
+      // 初期表示なので番号を即座に設定（firstRuleは#0、2行目以降は番号エリア自体非表示）
       const displayNum = segment.firstRule ? 0 : segment.num;
       numberElement.textContent = `#${displayNum}`;
 
@@ -1497,9 +1521,11 @@ function displayInitialRules() {
         jaElement.classList.remove('generating');
         enElement.classList.remove('generating');
 
-        // バージョンとタイムスタンプも即時表示（firstRuleは非表示なのでスキップ）
-        if (!segment.firstRule) {
-          const ver = calculateVersion(state.rules, segment.num);
+        // バージョンとタイムスタンプも即時表示（最初のfirstRuleはv.1.0を表示、2行目以降のfirstRuleは非表示）
+        if (!segment.firstRule || isFirstOfFirstRules) {
+          const ver = segment.firstRule
+            ? { major: 1, minor: 0 }  // #0は常にv.1.0
+            : calculateVersion(state.rules, segment.num);
           versionElement.textContent = `v.${ver.major}.${ver.minor}`;
           versionElement.classList.remove('generating');
 
@@ -1664,7 +1690,11 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   for (const seg of segmentsToGenerate) {
     // 新しいルール番号なら要素を作成
     if (seg.isFirst) {
-      const { ruleElement, numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(seg.num, { firstRule: seg.firstRule });
+      // firstRuleの最初の1つかどうか判定
+      const isFirstOfFirstRules = seg.firstRule && !state.firstRuleSeen;
+      if (seg.firstRule) state.firstRuleSeen = true;
+
+      const { ruleElement, numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(seg.num, { firstRule: seg.firstRule, firstOfFirstRules: isFirstOfFirstRules });
       state.currentRuleElement = ruleElement;
       state.currentNumberElement = numberElement;
       state.currentVersionElement = versionElement;
