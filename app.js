@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.85';
+const VERSION = '1.0.86';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -511,9 +511,6 @@ async function typewriterLeftPanel(type, ja, en) {
     jaListEl.append(jaRow);
     enListEl.append(enRow);
 
-    // 新アイテムが見えるようにスクロール
-    scrollLeftPanelToElement(jaRow);
-
     // 次フレームで展開開始
     requestAnimationFrame(() => {
       jaRow.style.maxHeight = jaRow.scrollHeight + 'px';
@@ -524,6 +521,9 @@ async function typewriterLeftPanel(type, ja, en) {
     await delay(250);
     jaRow.classList.add('expand-done');
     enRow.classList.add('expand-done');
+
+    // 展開完了後にスクロール（展開前だと高さ0で判定が効かない）
+    scrollLeftPanelToElement(jaRow);
 
     // ラグ（展開完了→ワイプイン）
     await delay(150);
