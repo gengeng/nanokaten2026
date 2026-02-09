@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.90';
+const VERSION = '1.0.91';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -35,7 +35,10 @@ const CONFIG = {
   // 切り替え停止（倍率）
   pauseNumToJa: 6,         // #番号 → 日本語
   pauseJaToEn: 7.5,        // 日本語 → 英語
+  pauseEnToVer: 4,         // 英語 → バージョン
+  pauseVerToTs: 2,         // バージョン → タイムスタンプ
   pauseEnToNum: 24,        // 英語 → 次の#番号（黒化後の間、100ms単位）
+  metaTypeSpeedFactor: 0.4, // メタ情報の打鍵速度（基本遅延の倍率）
 
   // 句読点停止（倍率）
   pauseKuten: 9,           // 句点（。）
@@ -91,7 +94,10 @@ const state = {
   typoPause: CONFIG.typoPause,
   pauseNumToJa: CONFIG.pauseNumToJa,
   pauseJaToEn: CONFIG.pauseJaToEn,
+  pauseEnToVer: CONFIG.pauseEnToVer,
+  pauseVerToTs: CONFIG.pauseVerToTs,
   pauseEnToNum: CONFIG.pauseEnToNum,
+  metaTypeSpeedFactor: CONFIG.metaTypeSpeedFactor,
   pauseKuten: CONFIG.pauseKuten,
   pauseTouten: CONFIG.pauseTouten,
   pauseOpenBracket: CONFIG.pauseOpenBracket,
@@ -804,38 +810,25 @@ function makeCurrentRuleBlack() {
     el.classList.remove('generating');
   });
 
-  // バージョンとタイムスタンプを表示（生成完了時）
+  // バージョンとタイムスタンプ（タイプライターで設定済み）
+  // inline colorを除去して.generatingクラスも削除
   const isFirstRule = state.currentNumberElement?.dataset.firstRule === 'true';
   const isFirstOfFirstRules = state.currentNumberElement?.dataset.firstOfFirstRules === 'true';
+
+  [state.currentVersionElement, state.currentTimestampElement].forEach(el => {
+    if (!el) return;
+    el.querySelectorAll('span[style*="color"]').forEach(span => {
+      span.style.removeProperty('color');
+    });
+    el.classList.remove('generating');
+  });
+
+  // タイトル下のバージョンバッジも更新
   if (state.currentVersionElement && state.currentNumberElement) {
-    if (isFirstOfFirstRules) {
-      // 最初のfirstRuleはv.1.0.0固定
-      state.currentVersionElement.textContent = 'v.1.0.0';
-      state.currentVersionElement.classList.remove('generating');
-    } else if (!isFirstRule) {
-      // 通常ルール
+    if (!isFirstRule) {
       const num = state.currentNumberElement.dataset.num;
       const ver = calculateVersion(state.rules, num);
-      state.currentVersionElement.textContent = `v.${ver.major}.${ver.subMajor}.${ver.minor}`;
-      state.currentVersionElement.classList.remove('generating');
-      // タイトル下のバージョンも同時に更新
       updateVersionDisplay(ver.major, ver.subMajor, ver.minor);
-    }
-  }
-  if (state.currentTimestampElement) {
-    if (isFirstOfFirstRules) {
-      // 最初のfirstRuleはタイムスタンプも表示
-      const now = new Date();
-      const ts = formatTimestamp(now);
-      const parts = ts.split(' ');
-      state.currentTimestampElement.textContent = parts.join('\n');
-      state.currentTimestampElement.classList.remove('generating');
-    } else if (!isFirstRule) {
-      const now = new Date();
-      const ts = formatTimestamp(now);
-      const parts = ts.split(' ');
-      state.currentTimestampElement.textContent = parts.join('\n');
-      state.currentTimestampElement.classList.remove('generating');
     }
   }
 }
@@ -1781,6 +1774,29 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
       removeCurrentCaret();
       await typewriterEnWithProgress(seg.enFull, charsDone, totalChars);
       charsDone += seg.enFull.length;
+
+      // バージョン・タイムスタンプをタイプライター表示
+      const isFirstRule = seg.firstRule;
+      const isFirstOfFirstRules = state.currentNumberElement?.dataset.firstOfFirstRules === 'true';
+
+      if (isFirstOfFirstRules || !isFirstRule) {
+        // バージョンテキスト計算
+        const ver = isFirstOfFirstRules
+          ? { major: 1, subMajor: 0, minor: 0 }
+          : calculateVersion(state.rules, seg.num);
+        const versionText = `v.${ver.major}.${ver.subMajor}.${ver.minor}`;
+
+        // タイムスタンプテキスト計算
+        const now = new Date();
+        const ts = formatTimestamp(now);
+        const parts = ts.split(' ');
+        const timestampText = parts.join('\n');
+
+        // タイプライター表示
+        await typewriterVersion(versionText);
+        await typewriterTimestamp(timestampText);
+      }
+
       // じわっと黒にフェード
       makeCurrentRuleBlack();
       // アニメーション完了を待つ（英語→次の番号への間）
@@ -1906,6 +1922,70 @@ async function typewriterNumber(num) {
   }
 
   // キャレットを削除（日本語タイプライターで新しく作る）
+  caret.remove();
+  state.currentCaret = null;
+}
+
+// バージョンタイプライター（インク侵食なし、速め）
+async function typewriterVersion(versionText) {
+  // 英語 → バージョンの切り替え待機
+  await delay(getTypewriterDelay() * state.pauseEnToVer);
+
+  const caret = document.createElement('span');
+  caret.className = 'caret generating';
+  state.currentVersionElement.appendChild(caret);
+  state.currentCaret = caret;
+
+  for (let i = 0; i < versionText.length; i++) {
+    const charSpan = document.createElement('span');
+    charSpan.textContent = versionText[i];
+    charSpan.style.color = '#999';
+    caret.parentNode.insertBefore(charSpan, caret);
+
+    if (state.isAutoScroll) {
+      scrollToBottom();
+    }
+
+    await delay(getTypewriterDelay() * state.metaTypeSpeedFactor);
+  }
+
+  caret.remove();
+  state.currentCaret = null;
+}
+
+// タイムスタンプタイプライター（インク侵食なし、速め）
+async function typewriterTimestamp(timestampText) {
+  // バージョン → タイムスタンプの切り替え待機
+  await delay(getTypewriterDelay() * state.pauseVerToTs);
+
+  const caret = document.createElement('span');
+  caret.className = 'caret generating';
+  state.currentTimestampElement.appendChild(caret);
+  state.currentCaret = caret;
+
+  for (let i = 0; i < timestampText.length; i++) {
+    const char = timestampText[i];
+
+    // 改行は<br>を挿入
+    if (char === '\n') {
+      const br = document.createElement('br');
+      caret.parentNode.insertBefore(br, caret);
+      await delay(getTypewriterDelay() * state.metaTypeSpeedFactor * 2);
+      continue;
+    }
+
+    const charSpan = document.createElement('span');
+    charSpan.textContent = char;
+    charSpan.style.color = '#999';
+    caret.parentNode.insertBefore(charSpan, caret);
+
+    if (state.isAutoScroll) {
+      scrollToBottom();
+    }
+
+    await delay(getTypewriterDelay() * state.metaTypeSpeedFactor);
+  }
+
   caret.remove();
   state.currentCaret = null;
 }

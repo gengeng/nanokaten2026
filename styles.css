@@ -495,6 +495,12 @@ body {
   color: transparent;
 }
 
+/* メタ情報（バージョン・タイムスタンプ）内のキャレットは細め */
+.rule-version .caret,
+.rule-timestamp .caret {
+  width: 2px;
+}
+
 .caret.generating {
   background: #000000;
 }
