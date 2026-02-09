@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.80';
+const VERSION = '1.0.81';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -730,9 +730,9 @@ function createRuleElement(num, options = {}) {
   timestampElement.className = 'rule-timestamp generating';
   timestampElement.textContent = '';
 
-  // firstRuleの2行目以降は番号エリアごと非表示
+  // firstRuleの2行目以降は番号エリアを不可視（幅は維持してテキスト左端を揃える）
   if (isFirstRule && !isFirstOfFirstRules) {
-    numberArea.style.display = 'none';
+    numberArea.style.visibility = 'hidden';
   }
 
   numberArea.appendChild(numberElement);
