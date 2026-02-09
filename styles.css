@@ -177,14 +177,18 @@ body {
   gap: 8px;
 }
 
-/* セクションヘッダー：日英横並び（日本語左、英語右） */
-.section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+/* セクションラベル（単言語ヘッダー） */
+.section-label {
+  font-size: 20px;
+  font-weight: 600;
+  color: #000000;
+}
+.section-label-en {
+  font-size: 16px;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
 }
 
-/* セクションコンテンツ：行ごとの日英ペア */
+/* セクションコンテンツ */
 /* gapではなくmargin-topで間隔制御（高さ展開アニメーションと干渉しないため） */
 .section-content {
   display: flex;
@@ -194,29 +198,37 @@ body {
   margin-top: 4px;
 }
 
-/* 各行：日英ペア（日本語左、英語右） */
+/* 各行：アイテム名（左）+ タイムスタンプ（右） */
 .content-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
 }
 
-/* 見出し：600 */
-.header-ja {
-  font-size: 20px;
-  font-weight: 600;
+/* アイテム名 */
+.content-name {
+  font-size: 14px;
+  font-weight: 500;
   color: #000000;
+  line-height: 1.5;
 }
-
-.header-en {
-  font-size: 16px;
-  font-weight: 600;
-  color: #000000;
+.content-name-en {
   font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
-  text-align: right;
 }
 
-/* 内容：500、14px */
+/* タイムスタンプ（右寄せ） */
+.content-timestamp {
+  font-size: 12px;
+  font-weight: 400;
+  color: #999999;
+  line-height: 1.5;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+/* 旧互換（content-ja / content-en はハイライト用に残す） */
 .content-ja {
   font-size: 14px;
   font-weight: 500;
@@ -264,14 +276,16 @@ body {
 
 /* テキストを黒帯の前面に表示 */
 .content-ja,
-.content-en {
+.content-en,
+.content-name,
+.content-timestamp {
   position: relative;
   z-index: 1;
 }
 
 /* ハイライト中のテキスト色 */
-.content-row.hl-active .content-ja,
-.content-row.hl-active .content-en {
+.content-row.hl-active .content-name,
+.content-row.hl-active .content-timestamp {
   color: #FFF;
 }
 
@@ -328,16 +342,40 @@ body {
   align-items: flex-start;
 }
 
+/* ルール番号エリア（#XX + バージョン + タイムスタンプ） */
 .rule-number {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-width: 96px;
+  text-align: left;
+}
+
+.rule-number-text {
   font-size: 24px;
   font-weight: 700;
   color: #999999;
-  flex-shrink: 0;
   line-height: 1.5;
-  /* 桁数が増えても右のテキストがズレないように固定幅 */
-  min-width: 56px;
-  text-align: left;
   transition: color 0.5s ease-out;
+}
+
+.rule-version {
+  font-size: 12px;
+  font-weight: 500;
+  color: #999999;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
+  line-height: 1.4;
+  transition: color 0.5s ease-out;
+}
+
+.rule-timestamp {
+  font-size: 12px;
+  font-weight: 400;
+  color: #999999;
+  font-family: 'SF Mono', SFMono-Regular, ui-monospace, monospace;
+  line-height: 1.4;
+  transition: color 0.5s ease-out;
+  white-space: pre-line;
 }
 
 .rule-content {
@@ -389,8 +427,12 @@ body {
   color: rgba(165, 165, 165, 0.6);
 }
 
-.rule-number.generating {
+.rule-number-text.generating {
   color: #999999;
+}
+.rule-version.generating,
+.rule-timestamp.generating {
+  color: transparent;
 }
 
 .caret.generating {

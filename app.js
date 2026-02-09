@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.72';
+const VERSION = '1.0.73';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -70,6 +70,8 @@ const state = {
   currentJaElement: null,    // 現在表示中の日本語要素
   currentEnElement: null,    // 現在表示中の英語要素
   currentNumberElement: null, // 現在表示中の番号要素
+  currentVersionElement: null, // 現在表示中のバージョン要素
+  currentTimestampElement: null, // 現在表示中のタイムスタンプ要素
   currentCaret: null,         // 画面上の唯一のキャレット
   pendingComponent: null,     // ルール完了後に左カラム表示する内容物データ
   pendingHands: null,         // ルール完了後に左カラム表示する手データ
@@ -112,8 +114,10 @@ let titleTapTimer = null;
 // DOM要素
 // ========================================
 const elements = {
-  componentsList: document.getElementById('components-list'),
-  handsList: document.getElementById('hands-list'),
+  componentsListJa: document.getElementById('components-list-ja'),
+  componentsListEn: document.getElementById('components-list-en'),
+  handsListJa: document.getElementById('hands-list-ja'),
+  handsListEn: document.getElementById('hands-list-en'),
   ruleList: document.getElementById('rule-list'),
   actionButton: document.getElementById('action-button'),
   actionButtonContainer: document.getElementById('action-button-container'),
@@ -295,6 +299,16 @@ function calculateVersion(rules, upToNum) {
   return { major, minor };
 }
 
+// タイムスタンプフォーマット
+function formatTimestamp(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d} ${h}:${min}`;
+}
+
 function updateVersionDisplay(major, minor, animate = true) {
   const newText = `${major}.${minor}`;
   const container = document.getElementById('ver-digits');
@@ -353,26 +367,39 @@ function updateVersionDisplay(major, minor, animate = true) {
   }
 }
 
-// 即時表示（初期表示用）— 行ごとの日英ペア、新着が上
+// 左パネル行を作成するヘルパー（日本語リスト用 or 英語リスト用）
+function createLeftPanelRow(text, timestamp, isEn) {
+  const row = document.createElement('div');
+  row.className = 'content-row';
+  const nameSpan = document.createElement('span');
+  nameSpan.className = isEn ? 'content-name content-name-en' : 'content-name';
+  nameSpan.textContent = text;
+  const tsSpan = document.createElement('span');
+  tsSpan.className = 'content-timestamp';
+  tsSpan.textContent = timestamp;
+  row.appendChild(nameSpan);
+  row.appendChild(tsSpan);
+  return row;
+}
+
+// 即時表示（初期表示用）— 日英分離、タイムスタンプ付き
 // `/` 区切りの場合は分割して複数行に
 function addComponentInstant(ja, en) {
   const jaItems = ja.split(' / ').map(s => s.trim()).filter(s => s);
   const enItems = en.split(' / ').map(s => s.trim()).filter(s => s);
   const count = Math.max(jaItems.length, enItems.length);
+  const ts = formatTimestamp(new Date());
 
   // 逆順で追加（prepend なので最後のアイテムが一番上に来るように）
   for (let i = count - 1; i >= 0; i--) {
-    const row = document.createElement('div');
-    row.className = 'content-row';
-    const jaSpan = document.createElement('span');
-    jaSpan.className = 'content-ja';
-    jaSpan.textContent = jaItems[i] || '';
-    const enSpan = document.createElement('span');
-    enSpan.className = 'content-en';
-    enSpan.textContent = enItems[i] || '';
-    row.appendChild(jaSpan);
-    row.appendChild(enSpan);
-    elements.componentsList.prepend(row);
+    // 日本語リストに追加
+    if (jaItems[i]) {
+      elements.componentsListJa.prepend(createLeftPanelRow(jaItems[i], ts, false));
+    }
+    // 英語リストに追加
+    if (enItems[i]) {
+      elements.componentsListEn.prepend(createLeftPanelRow(enItems[i], ts, true));
+    }
     componentCount++;
   }
 }
@@ -382,20 +409,18 @@ function addHandInstant(ja, en) {
   const jaItems = ja.split(' / ').map(s => s.trim()).filter(s => s);
   const enItems = en.split(' / ').map(s => s.trim()).filter(s => s);
   const count = Math.max(jaItems.length, enItems.length);
+  const ts = formatTimestamp(new Date());
 
   // 逆順で追加（prepend なので最後のアイテムが一番上に来るように）
   for (let i = count - 1; i >= 0; i--) {
-    const row = document.createElement('div');
-    row.className = 'content-row';
-    const jaSpan = document.createElement('span');
-    jaSpan.className = 'content-ja';
-    jaSpan.textContent = jaItems[i] || '';
-    const enSpan = document.createElement('span');
-    enSpan.className = 'content-en';
-    enSpan.textContent = enItems[i] || '';
-    row.appendChild(jaSpan);
-    row.appendChild(enSpan);
-    elements.handsList.prepend(row);
+    // 日本語リストに追加
+    if (jaItems[i]) {
+      elements.handsListJa.prepend(createLeftPanelRow(jaItems[i], ts, false));
+    }
+    // 英語リストに追加
+    if (enItems[i]) {
+      elements.handsListEn.prepend(createLeftPanelRow(enItems[i], ts, true));
+    }
     handsCount++;
   }
 }
@@ -407,71 +432,93 @@ function queueLeftPanelTypewriter(type, ja, en) {
 
 async function typewriterLeftPanel(type, ja, en) {
   const isComponent = type === 'component';
-  const listEl = isComponent ? elements.componentsList : elements.handsList;
+  const jaListEl = isComponent ? elements.componentsListJa : elements.handsListJa;
+  const enListEl = isComponent ? elements.componentsListEn : elements.handsListEn;
 
   // `/` 区切りの場合は分割
   const jaItems = ja.split(' / ').map(s => s.trim()).filter(s => s);
   const enItems = en.split(' / ').map(s => s.trim()).filter(s => s);
   const count = Math.max(jaItems.length, enItems.length);
 
-  // 追加した行を記録
-  const rows = [];
+  // タイムスタンプ（表示時刻）
+  const ts = formatTimestamp(new Date());
 
   // 各アイテムを順番にタイプライター表示
   for (let i = 0; i < count; i++) {
     const jaText = jaItems[i] || '';
     const enText = enItems[i] || '';
 
-    // 行を作成
-    const row = document.createElement('div');
-    row.className = 'content-row';
+    // --- 日本語行 ---
+    const jaRow = document.createElement('div');
+    jaRow.className = 'content-row';
 
-    // 日本語span
-    const jaSpan = document.createElement('span');
-    jaSpan.className = 'content-ja';
-    jaSpan.textContent = '\u200B';  // 高さ確保用プレースホルダー
+    const jaNameSpan = document.createElement('span');
+    jaNameSpan.className = 'content-name';
+    jaNameSpan.textContent = '\u200B';  // 高さ確保用プレースホルダー
 
-    // 英語span
-    const enSpan = document.createElement('span');
-    enSpan.className = 'content-en';
-    enSpan.textContent = '\u200B';
+    const jaTsSpan = document.createElement('span');
+    jaTsSpan.className = 'content-timestamp';
+    jaTsSpan.textContent = '\u200B';
 
-    row.appendChild(jaSpan);
-    row.appendChild(enSpan);
+    jaRow.appendChild(jaNameSpan);
+    jaRow.appendChild(jaTsSpan);
 
-    // 高さ展開：max-height: 0 → 実際の高さ
-    row.classList.add('expanding');
-    listEl.prepend(row);
-    rows.push(row);
+    // --- 英語行 ---
+    const enRow = document.createElement('div');
+    enRow.className = 'content-row';
+
+    const enNameSpan = document.createElement('span');
+    enNameSpan.className = 'content-name content-name-en';
+    enNameSpan.textContent = '\u200B';
+
+    const enTsSpan = document.createElement('span');
+    enTsSpan.className = 'content-timestamp';
+    enTsSpan.textContent = '\u200B';
+
+    enRow.appendChild(enNameSpan);
+    enRow.appendChild(enTsSpan);
+
+    // 高さ展開：max-height: 0 → 実際の高さ（両方のリストに追加）
+    jaRow.classList.add('expanding');
+    enRow.classList.add('expanding');
+    jaListEl.prepend(jaRow);
+    enListEl.prepend(enRow);
 
     // 次フレームで展開開始
     requestAnimationFrame(() => {
-      row.style.maxHeight = row.scrollHeight + 'px';
+      jaRow.style.maxHeight = jaRow.scrollHeight + 'px';
+      enRow.style.maxHeight = enRow.scrollHeight + 'px';
     });
 
     // 高さ展開完了を待つ (200ms + 余裕50ms)
     await delay(250);
-    row.classList.add('expand-done');  // overflow: visible に切り替え
+    jaRow.classList.add('expand-done');
+    enRow.classList.add('expand-done');
 
     // ラグ（展開完了→ワイプイン）
     await delay(150);
 
-    // 黒帯ワイプイン（テキストより先に出現）
-    row.classList.add('hl-active', 'hl-wipe-in');
+    // 黒帯ワイプイン（テキストより先に出現 — 両方のリストに適用）
+    jaRow.classList.add('hl-active', 'hl-wipe-in');
+    enRow.classList.add('hl-active', 'hl-wipe-in');
     await delay(400);  // ワイプイン200ms + 余韻200ms
 
     // 黒帯の上に白文字でタイプライター表示
-    // 日本語
+    // 日本語名
     for (const char of jaText) {
-      jaSpan.appendChild(document.createTextNode(char));
+      jaNameSpan.appendChild(document.createTextNode(char));
       await delay(getTypewriterDelay(char));
     }
 
-    // 英語
+    // 英語名（日本語完了後に開始）
     for (const char of enText) {
-      enSpan.appendChild(document.createTextNode(char));
+      enNameSpan.appendChild(document.createTextNode(char));
       await delay(getTypewriterDelayEn(char));
     }
+
+    // タイムスタンプを表示
+    jaTsSpan.textContent = ts;
+    enTsSpan.textContent = ts;
 
     if (isComponent) {
       componentCount++;
@@ -589,11 +636,26 @@ function createRuleElement(num) {
   const ruleElement = document.createElement('div');
   ruleElement.className = 'rule-item';
 
+  // ルール番号エリア（#XX + バージョン + タイムスタンプ）
+  const numberArea = document.createElement('div');
+  numberArea.className = 'rule-number';
+
   const numberElement = document.createElement('span');
-  numberElement.className = 'rule-number generating';
-  // 番号は空で作成（後でタイプライター表示）
+  numberElement.className = 'rule-number-text generating';
   numberElement.textContent = '';
-  numberElement.dataset.num = num;  // 番号を保存
+  numberElement.dataset.num = num;
+
+  const versionElement = document.createElement('span');
+  versionElement.className = 'rule-version generating';
+  versionElement.textContent = '';
+
+  const timestampElement = document.createElement('span');
+  timestampElement.className = 'rule-timestamp generating';
+  timestampElement.textContent = '';
+
+  numberArea.appendChild(numberElement);
+  numberArea.appendChild(versionElement);
+  numberArea.appendChild(timestampElement);
 
   const contentElement = document.createElement('div');
   contentElement.className = 'rule-content';
@@ -607,12 +669,12 @@ function createRuleElement(num) {
   contentElement.appendChild(jaElement);
   contentElement.appendChild(enElement);
 
-  ruleElement.appendChild(numberElement);
+  ruleElement.appendChild(numberArea);
   ruleElement.appendChild(contentElement);
 
   elements.ruleList.appendChild(ruleElement);
 
-  return { ruleElement, numberElement, jaElement, enElement };
+  return { ruleElement, numberElement, versionElement, timestampElement, jaElement, enElement };
 }
 
 function makeCurrentRuleBlack() {
@@ -630,6 +692,22 @@ function makeCurrentRuleBlack() {
     // generating クラス削除 → CSS transition で黒へ
     el.classList.remove('generating');
   });
+
+  // バージョンとタイムスタンプを表示（生成完了時）
+  if (state.currentVersionElement && state.currentNumberElement) {
+    const num = state.currentNumberElement.dataset.num;
+    const ver = calculateVersion(state.rules, num);
+    state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
+    state.currentVersionElement.classList.remove('generating');
+  }
+  if (state.currentTimestampElement) {
+    const now = new Date();
+    const ts = formatTimestamp(now);
+    // 右パネルでは改行して表示: "2026-12-31\n23:59"
+    const parts = ts.split(' ');
+    state.currentTimestampElement.textContent = parts.join('\n');
+    state.currentTimestampElement.classList.remove('generating');
+  }
 }
 
 // ========================================
@@ -1321,8 +1399,10 @@ function displayInitialRules() {
 
     // 新しいルール番号なら要素を作成
     if (segment.isFirst) {
-      const { numberElement, jaElement, enElement } = createRuleElement(segment.num);
+      const { numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(segment.num);
       state.currentNumberElement = numberElement;
+      state.currentVersionElement = versionElement;
+      state.currentTimestampElement = timestampElement;
       state.currentJaElement = jaElement;
       state.currentEnElement = enElement;
 
@@ -1334,6 +1414,17 @@ function displayInitialRules() {
         numberElement.classList.remove('generating');
         jaElement.classList.remove('generating');
         enElement.classList.remove('generating');
+
+        // バージョンとタイムスタンプも即時表示
+        const ver = calculateVersion(state.rules, segment.num);
+        versionElement.textContent = `v.${ver.major}.${ver.minor}`;
+        versionElement.classList.remove('generating');
+
+        const now = new Date();
+        const ts = formatTimestamp(now);
+        const parts = ts.split(' ');
+        timestampElement.textContent = parts.join('\n');
+        timestampElement.classList.remove('generating');
       }
 
       // 内容物・じゃんけんの手を即時表示
@@ -1355,6 +1446,19 @@ function displayInitialRules() {
       // 英語表示後、ルールを黒に
       state.currentNumberElement.classList.remove('generating');
       state.currentJaElement.classList.remove('generating');
+
+      // 完了ルールにもバージョンとタイムスタンプを即時表示
+      if (state.currentVersionElement && !state.currentVersionElement.textContent) {
+        const ver = calculateVersion(state.rules, segment.num);
+        state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
+        state.currentVersionElement.classList.remove('generating');
+
+        const now = new Date();
+        const ts = formatTimestamp(now);
+        const parts = ts.split(' ');
+        state.currentTimestampElement.textContent = parts.join('\n');
+        state.currentTimestampElement.classList.remove('generating');
+      }
     }
   }
 
@@ -1483,9 +1587,11 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   for (const seg of segmentsToGenerate) {
     // 新しいルール番号なら要素を作成
     if (seg.isFirst) {
-      const { ruleElement, numberElement, jaElement, enElement } = createRuleElement(seg.num);
+      const { ruleElement, numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(seg.num);
       state.currentRuleElement = ruleElement;
       state.currentNumberElement = numberElement;
+      state.currentVersionElement = versionElement;
+      state.currentTimestampElement = timestampElement;
       state.currentJaElement = jaElement;
       state.currentEnElement = enElement;
       // 新規ルールの場合はキャレットも新規作成
