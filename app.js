@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.92';
+const VERSION = '1.0.93';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -817,10 +817,12 @@ function makeCurrentRuleBlack() {
 
   [state.currentVersionElement, state.currentTimestampElement].forEach(el => {
     if (!el) return;
+    // 先に.generatingを除去（親colorをtransparent→#999に）してからinline colorを除去
+    // 順序が逆だとtransparentを一瞬継承して白く光る
+    el.classList.remove('generating');
     el.querySelectorAll('span[style*="color"]').forEach(span => {
       span.style.removeProperty('color');
     });
-    el.classList.remove('generating');
   });
 
   // タイトル下のバージョンバッジも更新
