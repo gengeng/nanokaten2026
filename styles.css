@@ -124,15 +124,15 @@ body {
   padding-top: 32px;
 }
 
-/* 英語ヘッダー（divider margin で既に32pxあるため padding-top は不要） */
+/* 英語ヘッダー（sticky固定時にも上余白を確保） */
 .left-half-header-en {
-  padding-top: 0;
+  padding-top: 32px;
 }
 
-/* 日英区切り線 */
+/* 日英区切り線（ENヘッダーにpadding-top 32pxがあるため、下marginは0） */
 .left-panel-divider {
   border-top: 1px solid #000000;
-  margin: 32px -32px;
+  margin: 32px -32px 0;
 }
 
 /* 旧: タイトル */
