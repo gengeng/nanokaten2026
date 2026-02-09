@@ -78,7 +78,6 @@ body {
 .left-half {
   display: flex;
   flex-direction: column;
-  gap: 32px;
 }
 
 /* スティッキーヘッダー（ロゴ + バージョン） */

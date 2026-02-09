@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.78';
+const VERSION = '1.0.79';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -181,15 +181,15 @@ async function loadRules() {
     const data = await fetchSheetData(CONFIG.rulesSheetId);
     const rows = data.table.rows;
 
-    // config列を1行目から取得（config_startRule=L列, config_isPaused=M列）
+    // config列を1行目から取得（config_startRule=M列, config_isPaused=N列）
     const remoteConfig = {};
     if (rows.length > 0 && rows[0].c) {
       const firstRow = rows[0].c;
-      if (firstRow[11]?.v !== undefined && firstRow[11]?.v !== null) {
-        remoteConfig.startRule = firstRow[11].v;
-      }
       if (firstRow[12]?.v !== undefined && firstRow[12]?.v !== null) {
-        remoteConfig.isPaused = firstRow[12].v;
+        remoteConfig.startRule = firstRow[12].v;
+      }
+      if (firstRow[13]?.v !== undefined && firstRow[13]?.v !== null) {
+        remoteConfig.isPaused = firstRow[13].v;
       }
     }
     state.remoteConfig = remoteConfig;
@@ -203,14 +203,15 @@ async function loadRules() {
         num: cells[0]?.v || 0,           // A: num
         id: cells[1]?.v || '',           // B: id
         major: cells[2]?.v === true || cells[2]?.v === 'TRUE',  // C: major
-        ja: cells[3]?.v || '',           // D: ja
-        en: cells[4]?.v || '',           // E: en
-        // cells[5] = auto_translate (skip)
-        jankenJa: cells[6]?.v || '',     // G: janken_ja
-        jankenEn: cells[7]?.v || '',     // H: janken_en
-        // cells[8] = auto_translate_janken_en (skip)
-        componentJa: cells[9]?.v || '',  // J: component_ja
-        componentEn: cells[10]?.v || '', // K: component_en
+        firstRule: cells[3]?.v === true || cells[3]?.v === 'TRUE',  // D: first_rule
+        ja: cells[4]?.v || '',           // E: ja
+        en: cells[5]?.v || '',           // F: en
+        // cells[6] = auto_translate (skip)
+        jankenJa: cells[7]?.v || '',     // H: janken_ja
+        jankenEn: cells[8]?.v || '',     // I: janken_en
+        // cells[9] = auto_translate_janken_en (skip)
+        componentJa: cells[10]?.v || '', // K: component_ja
+        componentEn: cells[11]?.v || '', // L: component_en
       };
     }).filter(rule => rule && rule.ja);
 
@@ -270,6 +271,7 @@ function prepareSegments(rules) {
         jankenJa: i === 0 ? rule.jankenJa : '',
         jankenEn: i === 0 ? rule.jankenEn : '',
         major: i === 0 ? rule.major : false,
+        firstRule: i === 0 ? rule.firstRule : false,
       });
     });
   });
@@ -287,10 +289,17 @@ let leftPanelQueue = Promise.resolve();  // 左パネルタイプライターの
 function calculateVersion(rules, upToNum) {
   let major = 1;
   let minor = 0;
+  let firstMajorSeen = false;
   for (const rule of rules) {
     if (Number(rule.num) > Number(upToNum)) break;
+    if (rule.firstRule) continue;  // first_ruleはバージョン計算から除外
     if (rule.major) {
-      major++;
+      if (!firstMajorSeen) {
+        // 最初のmajorは1.0の開始（加算しない）
+        firstMajorSeen = true;
+      } else {
+        major++;
+      }
       minor = 0;
     } else {
       minor++;
@@ -690,7 +699,9 @@ class Typewriter {
 // ========================================
 // ルール表示
 // ========================================
-function createRuleElement(num) {
+function createRuleElement(num, options = {}) {
+  const isFirstRule = options.firstRule || false;
+
   const ruleElement = document.createElement('div');
   ruleElement.className = 'rule-item';
 
@@ -702,6 +713,9 @@ function createRuleElement(num) {
   numberElement.className = 'rule-number-text generating';
   numberElement.textContent = '';
   numberElement.dataset.num = num;
+  if (isFirstRule) {
+    numberElement.dataset.firstRule = 'true';
+  }
 
   const versionElement = document.createElement('span');
   versionElement.className = 'rule-version generating';
@@ -710,6 +724,12 @@ function createRuleElement(num) {
   const timestampElement = document.createElement('span');
   timestampElement.className = 'rule-timestamp generating';
   timestampElement.textContent = '';
+
+  // first_rule はバージョン・タイムスタンプを非表示
+  if (isFirstRule) {
+    versionElement.style.display = 'none';
+    timestampElement.style.display = 'none';
+  }
 
   numberArea.appendChild(numberElement);
   numberArea.appendChild(versionElement);
@@ -751,8 +771,9 @@ function makeCurrentRuleBlack() {
     el.classList.remove('generating');
   });
 
-  // バージョンとタイムスタンプを表示（生成完了時）
-  if (state.currentVersionElement && state.currentNumberElement) {
+  // バージョンとタイムスタンプを表示（生成完了時、firstRuleは除く）
+  const isFirstRule = state.currentNumberElement?.dataset.firstRule === 'true';
+  if (!isFirstRule && state.currentVersionElement && state.currentNumberElement) {
     const num = state.currentNumberElement.dataset.num;
     const ver = calculateVersion(state.rules, num);
     state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
@@ -760,7 +781,7 @@ function makeCurrentRuleBlack() {
     // タイトル下のバージョンも同時に更新
     updateVersionDisplay(ver.major, ver.minor);
   }
-  if (state.currentTimestampElement) {
+  if (!isFirstRule && state.currentTimestampElement) {
     const now = new Date();
     const ts = formatTimestamp(now);
     // 右パネルでは改行して表示: "2026-12-31\n23:59"
@@ -1459,15 +1480,16 @@ function displayInitialRules() {
 
     // 新しいルール番号なら要素を作成
     if (segment.isFirst) {
-      const { numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(segment.num);
+      const { numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(segment.num, { firstRule: segment.firstRule });
       state.currentNumberElement = numberElement;
       state.currentVersionElement = versionElement;
       state.currentTimestampElement = timestampElement;
       state.currentJaElement = jaElement;
       state.currentEnElement = enElement;
 
-      // 初期表示なので番号を即座に設定
-      numberElement.textContent = `#${segment.num}`;
+      // 初期表示なので番号を即座に設定（firstRuleは#0として表示）
+      const displayNum = segment.firstRule ? 0 : segment.num;
+      numberElement.textContent = `#${displayNum}`;
 
       // 開始ルール以下は黒、それ以降はグレー
       if (Number(segment.num) <= Number(startRule)) {
@@ -1475,16 +1497,18 @@ function displayInitialRules() {
         jaElement.classList.remove('generating');
         enElement.classList.remove('generating');
 
-        // バージョンとタイムスタンプも即時表示
-        const ver = calculateVersion(state.rules, segment.num);
-        versionElement.textContent = `v.${ver.major}.${ver.minor}`;
-        versionElement.classList.remove('generating');
+        // バージョンとタイムスタンプも即時表示（firstRuleは非表示なのでスキップ）
+        if (!segment.firstRule) {
+          const ver = calculateVersion(state.rules, segment.num);
+          versionElement.textContent = `v.${ver.major}.${ver.minor}`;
+          versionElement.classList.remove('generating');
 
-        const now = new Date();
-        const ts = formatTimestamp(now);
-        const parts = ts.split(' ');
-        timestampElement.textContent = parts.join('\n');
-        timestampElement.classList.remove('generating');
+          const now = new Date();
+          const ts = formatTimestamp(now);
+          const parts = ts.split(' ');
+          timestampElement.textContent = parts.join('\n');
+          timestampElement.classList.remove('generating');
+        }
       }
 
       // 内容物・じゃんけんの手を即時表示
@@ -1507,8 +1531,8 @@ function displayInitialRules() {
       state.currentNumberElement.classList.remove('generating');
       state.currentJaElement.classList.remove('generating');
 
-      // 完了ルールにもバージョンとタイムスタンプを即時表示
-      if (state.currentVersionElement && !state.currentVersionElement.textContent) {
+      // 完了ルールにもバージョンとタイムスタンプを即時表示（firstRuleは除く）
+      if (!segment.firstRule && state.currentVersionElement && !state.currentVersionElement.textContent) {
         const ver = calculateVersion(state.rules, segment.num);
         state.currentVersionElement.textContent = `v.${ver.major}.${ver.minor}`;
         state.currentVersionElement.classList.remove('generating');
@@ -1640,7 +1664,7 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
   for (const seg of segmentsToGenerate) {
     // 新しいルール番号なら要素を作成
     if (seg.isFirst) {
-      const { ruleElement, numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(seg.num);
+      const { ruleElement, numberElement, versionElement, timestampElement, jaElement, enElement } = createRuleElement(seg.num, { firstRule: seg.firstRule });
       state.currentRuleElement = ruleElement;
       state.currentNumberElement = numberElement;
       state.currentVersionElement = versionElement;
@@ -1653,8 +1677,9 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
       if (state.isAutoScroll) {
         scrollToBottom();
       }
-      // 番号をタイプライター表示
-      await typewriterNumber(seg.num);
+      // 番号をタイプライター表示（firstRuleは#0として表示）
+      const displayNum = seg.firstRule ? 0 : seg.num;
+      await typewriterNumber(displayNum);
 
       // 内容物・じゃんけんの手データを一時保持（ルール完了後に表示する）
       if (seg.componentJa) {
