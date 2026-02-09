@@ -14,36 +14,43 @@
   <div class="container">
     <!-- 左カラム：ゲーム情報 -->
     <aside class="left-panel">
-      <div class="game-title">
-        <img class="title-ja" id="title-ja" src="assets/logo_ja.svg" alt="じゃんけん">
-        <img class="title-en" id="title-en" src="assets/logo_en.svg" alt="Rock-Paper-Scissors">
-        <span class="game-version" id="game-version"><span class="ver-label">v.</span><span class="ver-digits" id="ver-digits">1.0</span></span>
+      <!-- 日本語パート -->
+      <div class="left-half left-half-ja">
+        <div class="left-half-header left-half-header-ja">
+          <img class="title-ja" id="title-ja" src="assets/logo_ja.svg" alt="じゃんけん">
+          <span class="game-version" id="game-version-ja"><span class="ver-label">v.</span><span class="ver-digits" id="ver-digits-ja">1.0</span></span>
+        </div>
+        <div class="left-half-body">
+          <section class="game-section">
+            <div class="section-label">手</div>
+            <div class="section-content" id="hands-list-ja"></div>
+          </section>
+          <section class="game-section">
+            <div class="section-label">コンポーネント</div>
+            <div class="section-content" id="components-list-ja"></div>
+          </section>
+        </div>
       </div>
 
-      <div class="game-sections">
-        <!-- 手（日本語） -->
-        <section class="game-section">
-          <div class="section-label">手</div>
-          <div class="section-content" id="hands-list-ja"></div>
-        </section>
+      <!-- 区切り線 -->
+      <div class="left-panel-divider"></div>
 
-        <!-- コンポーネント（日本語） -->
-        <section class="game-section">
-          <div class="section-label">コンポーネント</div>
-          <div class="section-content" id="components-list-ja"></div>
-        </section>
-
-        <!-- Hands（英語） -->
-        <section class="game-section">
-          <div class="section-label section-label-en">Hands</div>
-          <div class="section-content" id="hands-list-en"></div>
-        </section>
-
-        <!-- Components（英語） -->
-        <section class="game-section">
-          <div class="section-label section-label-en">Components</div>
-          <div class="section-content" id="components-list-en"></div>
-        </section>
+      <!-- 英語パート -->
+      <div class="left-half left-half-en">
+        <div class="left-half-header left-half-header-en">
+          <img class="title-en" id="title-en" src="assets/logo_en.svg" alt="Rock-Paper-Scissors">
+          <span class="game-version" id="game-version-en"><span class="ver-label">v.</span><span class="ver-digits" id="ver-digits-en">1.0</span></span>
+        </div>
+        <div class="left-half-body">
+          <section class="game-section">
+            <div class="section-label section-label-en">Hands</div>
+            <div class="section-content" id="hands-list-en"></div>
+          </section>
+          <section class="game-section">
+            <div class="section-label section-label-en">Components</div>
+            <div class="section-content" id="components-list-en"></div>
+          </section>
+        </div>
       </div>
     </aside>
 

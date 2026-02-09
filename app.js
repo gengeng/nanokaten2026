@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.74';
+const VERSION = '1.0.75';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -122,7 +122,7 @@ const elements = {
   actionButton: document.getElementById('action-button'),
   actionButtonContainer: document.getElementById('action-button-container'),
   progressFill: document.getElementById('progress-fill'),
-  gameVersion: document.getElementById('game-version'),
+  leftPanel: document.querySelector('.left-panel'),
 };
 
 // ========================================
@@ -311,60 +311,64 @@ function formatTimestamp(date) {
 
 function updateVersionDisplay(major, minor, animate = true) {
   const newText = `${major}.${minor}`;
-  const container = document.getElementById('ver-digits');
-  if (!container) return;
 
-  const oldText = container.dataset.value || '';
-  container.dataset.value = newText;
+  // 日英2つのバージョンバッジを同時更新
+  ['ver-digits-ja', 'ver-digits-en'].forEach(id => {
+    const container = document.getElementById(id);
+    if (!container) return;
 
-  // 初期表示またはアニメーション不要の場合
-  if (!animate || !oldText) {
-    container.textContent = newText;
-    return;
-  }
+    const oldText = container.dataset.value || '';
+    container.dataset.value = newText;
 
-  // 同じなら何もしない
-  if (oldText === newText) return;
-
-  // 桁ごとの差分アニメーション
-  const maxLen = Math.max(oldText.length, newText.length);
-  container.textContent = '';
-
-  for (let i = 0; i < maxLen; i++) {
-    const oldChar = oldText[i] || '';
-    const newChar = newText[i] || '';
-
-    if (oldChar === newChar) {
-      container.appendChild(document.createTextNode(newChar));
-    } else {
-      // 数値比較で方向を決定（増加→上へ、減少→下へ）
-      const oldNum = parseInt(oldChar);
-      const newNum = parseInt(newChar);
-      const goUp = isNaN(oldNum) || isNaN(newNum) || newNum >= oldNum;
-      const dir = goUp ? 'up' : 'down';
-
-      // スライドアニメーション
-      const wrapper = document.createElement('span');
-      wrapper.className = 'ver-digit';
-
-      const out = document.createElement('span');
-      out.className = `ver-digit-out ver-${dir}`;
-      out.textContent = oldChar;
-
-      const inn = document.createElement('span');
-      inn.className = `ver-digit-in ver-${dir}`;
-      inn.textContent = newChar;
-
-      wrapper.appendChild(out);
-      wrapper.appendChild(inn);
-      container.appendChild(wrapper);
-
-      // アニメーション完了後にクリーンアップ
-      inn.addEventListener('animationend', () => {
-        wrapper.replaceWith(document.createTextNode(newChar));
-      }, { once: true });
+    // 初期表示またはアニメーション不要の場合
+    if (!animate || !oldText) {
+      container.textContent = newText;
+      return;
     }
-  }
+
+    // 同じなら何もしない
+    if (oldText === newText) return;
+
+    // 桁ごとの差分アニメーション
+    const maxLen = Math.max(oldText.length, newText.length);
+    container.textContent = '';
+
+    for (let i = 0; i < maxLen; i++) {
+      const oldChar = oldText[i] || '';
+      const newChar = newText[i] || '';
+
+      if (oldChar === newChar) {
+        container.appendChild(document.createTextNode(newChar));
+      } else {
+        // 数値比較で方向を決定（増加→上へ、減少→下へ）
+        const oldNum = parseInt(oldChar);
+        const newNum = parseInt(newChar);
+        const goUp = isNaN(oldNum) || isNaN(newNum) || newNum >= oldNum;
+        const dir = goUp ? 'up' : 'down';
+
+        // スライドアニメーション
+        const wrapper = document.createElement('span');
+        wrapper.className = 'ver-digit';
+
+        const out = document.createElement('span');
+        out.className = `ver-digit-out ver-${dir}`;
+        out.textContent = oldChar;
+
+        const inn = document.createElement('span');
+        inn.className = `ver-digit-in ver-${dir}`;
+        inn.textContent = newChar;
+
+        wrapper.appendChild(out);
+        wrapper.appendChild(inn);
+        container.appendChild(wrapper);
+
+        // アニメーション完了後にクリーンアップ
+        inn.addEventListener('animationend', () => {
+          wrapper.replaceWith(document.createTextNode(newChar));
+        }, { once: true });
+      }
+    }
+  });
 }
 
 // 左パネル行を作成するヘルパー（日本語リスト用 or 英語リスト用）
@@ -484,6 +488,9 @@ async function typewriterLeftPanel(type, ja, en) {
     jaListEl.prepend(jaRow);
     enListEl.prepend(enRow);
 
+    // 新アイテムが見えるようにスクロール
+    scrollLeftPanelToElement(jaRow);
+
     // 次フレームで展開開始
     requestAnimationFrame(() => {
       jaRow.style.maxHeight = jaRow.scrollHeight + 'px';
@@ -542,6 +549,24 @@ function removeLeftPanelHighlights() {
       row.classList.remove('hl-wipe-out');
     }, { once: true });
   });
+}
+
+// 左パネル自動スクロール（新アイテムが見えるように）
+function scrollLeftPanelToElement(el) {
+  const leftPanel = elements.leftPanel;
+  if (!leftPanel || !el) return;
+
+  const panelRect = leftPanel.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+
+  // 要素が表示領域外なら スムーズスクロール
+  if (elRect.top < panelRect.top) {
+    const offset = elRect.top - panelRect.top;
+    leftPanel.scrollBy({ top: offset - 16, behavior: 'smooth' });
+  } else if (elRect.bottom > panelRect.bottom) {
+    const offset = elRect.bottom - panelRect.bottom;
+    leftPanel.scrollBy({ top: offset + 16, behavior: 'smooth' });
+  }
 }
 
 // ========================================
@@ -2368,7 +2393,7 @@ function setupEventListeners() {
   elements.ruleList.addEventListener('scroll', checkScrollPosition);
 
   // タイトル5回タップでデバッグモード有効化
-  const gameTitle = document.querySelector('.game-title');
+  const gameTitle = document.querySelector('.left-half-header-ja');
   if (gameTitle) {
     gameTitle.addEventListener('click', () => {
       titleTapCount++;
