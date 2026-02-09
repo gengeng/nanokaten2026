@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.81';
+const VERSION = '1.0.82';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -254,14 +254,21 @@ async function loadRules() {
 
 function prepareSegments(rules) {
   const segments = [];
+  // firstRuleの数をカウントして、通常ルールの表示番号をリナンバリング
+  const firstRuleCount = rules.filter(r => r.firstRule).length;
+
   rules.forEach(rule => {
     // 最初の「、」または「:」（半角コロン）の後ろで1回だけ分割（区切り文字を含む）
     const match = rule.ja.match(/^(.*?(?:、|: |:(?=[^ ])))(.*)/);
     const jaParts = match ? [match[1], match[2]] : [rule.ja];
 
+    // 表示番号: firstRuleは0、通常ルールはnum - firstRuleCount
+    const displayNum = rule.firstRule ? 0 : rule.num - firstRuleCount;
+
     jaParts.forEach((part, i) => {
       segments.push({
         num: rule.num,
+        displayNum: displayNum,
         jaSegment: part,
         enFull: i === jaParts.length - 1 ? rule.en : null,  // 最後のセグメントのみ英語
         isFirst: i === 0,  // このルールの最初のセグメントか
@@ -1511,9 +1518,8 @@ function displayInitialRules() {
       state.currentJaElement = jaElement;
       state.currentEnElement = enElement;
 
-      // 初期表示なので番号を即座に設定（firstRuleは#0、2行目以降は番号エリア自体非表示）
-      const displayNum = segment.firstRule ? 0 : segment.num;
-      numberElement.textContent = `#${displayNum}`;
+      // 初期表示なので番号を即座に設定（displayNumはprepareSegmentsで計算済み）
+      numberElement.textContent = `#${segment.displayNum}`;
 
       // 開始ルール以下は黒、それ以降はグレー
       if (Number(segment.num) <= Number(startRule)) {
@@ -1707,9 +1713,8 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
       if (state.isAutoScroll) {
         scrollToBottom();
       }
-      // 番号をタイプライター表示（firstRuleは#0として表示）
-      const displayNum = seg.firstRule ? 0 : seg.num;
-      await typewriterNumber(displayNum);
+      // 番号をタイプライター表示（displayNumはprepareSegmentsで計算済み）
+      await typewriterNumber(seg.displayNum);
 
       // 内容物・じゃんけんの手データを一時保持（ルール完了後に表示する）
       if (seg.componentJa) {
