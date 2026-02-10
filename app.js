@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.98';
+const VERSION = '1.0.99';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -2170,9 +2170,18 @@ function animateGauge() {
 }
 
 function finishGauge() {
+  // 思考中メッセージのタイマーをクリア
+  clearThinkingMessageTimers();
+
   // 停止時間にゆらぎを適用
   const durationVariance = (Math.random() * 2 - 1) * state.gaugePauseDurationVariance;
   const pauseDuration = Math.max(100, state.gaugePauseDuration * (1 + durationVariance));
+
+  // 「思考完了」を表示
+  const jaEl = elements.actionButton?.querySelector('.btn-text-ja');
+  const enEl = elements.actionButton?.querySelector('.btn-text-en');
+  if (jaEl) jaEl.textContent = BUTTON_STATES.complete.ja;
+  if (enEl) enEl.textContent = BUTTON_STATES.complete.en;
 
   // 停止後 → 100% へスムーズにアニメーション
   setTimeout(() => {
@@ -2257,8 +2266,54 @@ function onTextComplete() {
     // ゲージがまだ動いている → 思考中状態へ
     state.isThinking = true;
     updateButtonState();
+    // gaugeDurationが20秒以上なら、10秒後にメッセージ切り替え開始
+    startThinkingMessageRotation();
   }
   // ゲージが既に完了済み（gaugeStartTime === null）なら何もしない
+}
+
+// 思考中メッセージのローテーション開始
+function startThinkingMessageRotation() {
+  // 既存のタイマーをクリア
+  clearThinkingMessageTimers();
+
+  // gaugeDurationが20秒未満なら何もしない
+  if (state.gaugeDuration < 20000) return;
+
+  // 10秒後にメッセージ切り替え開始
+  thinkingStartTimeout = setTimeout(() => {
+    // 最初のメッセージを表示
+    showRandomThinkingMessage();
+
+    // 10秒ごとに切り替え
+    thinkingMessageInterval = setInterval(() => {
+      if (state.isThinking) {
+        showRandomThinkingMessage();
+      }
+    }, 10000);
+  }, 10000);
+}
+
+// ランダムな思考中メッセージを表示
+function showRandomThinkingMessage() {
+  const msg = pickThinkingMessage();
+  // ボタンテキストを直接更新（アニメーションなし）
+  const jaEl = elements.actionButton?.querySelector('.btn-text-ja');
+  const enEl = elements.actionButton?.querySelector('.btn-text-en');
+  if (jaEl) jaEl.textContent = msg.ja;
+  if (enEl) enEl.textContent = msg.en;
+}
+
+// 思考中メッセージのタイマーをクリア
+function clearThinkingMessageTimers() {
+  if (thinkingStartTimeout) {
+    clearTimeout(thinkingStartTimeout);
+    thinkingStartTimeout = null;
+  }
+  if (thinkingMessageInterval) {
+    clearInterval(thinkingMessageInterval);
+    thinkingMessageInterval = null;
+  }
 }
 
 function resetProgressBar() {
@@ -2266,6 +2321,8 @@ function resetProgressBar() {
     cancelAnimationFrame(gaugeAnimationFrame);
     gaugeAnimationFrame = null;
   }
+  // 思考中メッセージのタイマーもクリア
+  clearThinkingMessageTimers();
   gaugeStartTime = null;
   textComplete = false;
   gaugePausedAt90 = false;
@@ -2311,11 +2368,37 @@ const buttonMotion = {
 
 // ボタン状態名
 const BUTTON_STATES = {
-  idle:       { ja: '続きを生成',          en: 'Continue Generating',    isIdle: true,  countdown: false },
+  idle:       { ja: '続きを出力',          en: 'Continue Generating',    isIdle: true,  countdown: false },
   countdown:  { ja: '自動生成まであと{time}', en: 'Auto-generate in {time}', isIdle: true,  countdown: true  },
-  generating: { ja: 'ルール生成中...',      en: 'Generating Rules...',     isIdle: false, countdown: false },
+  generating: { ja: 'ルール出力中...',      en: 'Generating Rules...',     isIdle: false, countdown: false },
   thinking:   { ja: '次のルールを思考中...', en: 'Thinking...',            isIdle: false, countdown: false },
+  complete:   { ja: '思考完了',            en: 'Complete',               isIdle: false, countdown: false },
 };
+
+// 思考中メッセージのバリエーション（重み付き、上ほど出やすい）
+const THINKING_MESSAGES = [
+  { ja: '少々お待ちください...', en: 'Please wait...', weight: 8 },
+  { ja: '悩み中...', en: 'Pondering...', weight: 7 },
+  { ja: '頑張って考え中...', en: 'Thinking hard...', weight: 6 },
+  { ja: 'がんばるぞ', en: 'Doing my best', weight: 5 },
+  { ja: '焦らせないでください！', en: "Don't rush me!", weight: 4 },
+  { ja: 'そんな簡単に思いつくもんじゃないんです', en: "It's not that easy...", weight: 3 },
+  { ja: 'いつまで考えればいいんだ...', en: 'How long must I think...', weight: 2 },
+  { ja: '実はAIが考えているわけでは...', en: 'Actually, no AI here...', weight: 1 },
+];
+let thinkingMessageInterval = null;  // 思考中メッセージ切り替えタイマー
+let thinkingStartTimeout = null;     // 10秒後に切り替え開始するタイマー
+
+// 重み付きランダム選択
+function pickThinkingMessage() {
+  const totalWeight = THINKING_MESSAGES.reduce((sum, m) => sum + m.weight, 0);
+  let rand = Math.random() * totalWeight;
+  for (const msg of THINKING_MESSAGES) {
+    rand -= msg.weight;
+    if (rand <= 0) return msg;
+  }
+  return THINKING_MESSAGES[0];
+}
 
 let currentButtonState = 'idle';
 let buttonAnimating = false;
