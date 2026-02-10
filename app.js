@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.103';
+const VERSION = '1.0.104';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -316,8 +316,6 @@ function prepareSegments(rules) {
 // ========================================
 // 左パネル：内容物・じゃんけんの手
 // ========================================
-let componentCount = 0;  // 表示済み内容物の数
-let handsCount = 0;      // 表示済みじゃんけんの手の数
 let leftPanelQueue = Promise.resolve();  // 左パネルタイプライターのキュー
 
 // 指定ルール番号までのバージョンを計算（v.major.subMajor.minor）
@@ -459,7 +457,6 @@ function addComponentInstant(ja, en) {
     if (enItems[i]) {
       elements.componentsListEn.append(createLeftPanelRow(enItems[i], ts, true));
     }
-    componentCount++;
   }
 }
 
@@ -480,7 +477,6 @@ function addHandInstant(ja, en) {
     if (enItems[i]) {
       elements.handsListEn.append(createLeftPanelRow(enItems[i], ts, true));
     }
-    handsCount++;
   }
 }
 
@@ -583,12 +579,6 @@ async function typewriterLeftPanel(type, ja, en) {
       jaTsSpan.appendChild(document.createTextNode(char));
       enTsSpan.appendChild(document.createTextNode(char));
       await delay(getTypewriterDelay() * CONFIG.metaTypeSpeedFactor);
-    }
-
-    if (isComponent) {
-      componentCount++;
-    } else {
-      handsCount++;
     }
   }
 
@@ -2185,8 +2175,8 @@ function finishGauge() {
   clearThinkingMessageTimers();
 
   // 1. まず「思考完了」を表示
-  const jaEl = elements.actionButton?.querySelector('.btn-text-ja');
-  const enEl = elements.actionButton?.querySelector('.btn-text-en');
+  const jaEl = elements.actionButton?.querySelector('.button-ja');
+  const enEl = elements.actionButton?.querySelector('.button-en');
   if (jaEl) jaEl.textContent = BUTTON_STATES.complete.ja;
   if (enEl) enEl.textContent = BUTTON_STATES.complete.en;
 
@@ -2308,8 +2298,8 @@ function startThinkingMessageRotation() {
 function showRandomThinkingMessage() {
   const msg = pickThinkingMessage();
   // ボタンテキストを直接更新（アニメーションなし）
-  const jaEl = elements.actionButton?.querySelector('.btn-text-ja');
-  const enEl = elements.actionButton?.querySelector('.btn-text-en');
+  const jaEl = elements.actionButton?.querySelector('.button-ja');
+  const enEl = elements.actionButton?.querySelector('.button-en');
   if (jaEl) jaEl.textContent = msg.ja;
   if (enEl) enEl.textContent = msg.en;
 }
