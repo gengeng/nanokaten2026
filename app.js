@@ -5,15 +5,15 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.93';
+const VERSION = '1.0.94';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
   rulesSheetId: '487776336',
   typewriterSpeed: 8, // 1-100
-  // URLパラメータまたはリモート設定から取得
-  startRule: parseInt(new URLSearchParams(window.location.search).get('startRule')) || 8,
+  // URLパラメータまたはリモート設定から取得（hash値、num = hash + 12）
+  startRule: parseInt(new URLSearchParams(window.location.search).get('startRule')) || 1,
   // GAS直接呼び出し（ステータス記録用）
   statusGasUrl: 'https://script.google.com/macros/s/AKfycbw2y_-q8WI8M4EwnNHWtH3ss73x2bMo6VlpdPiTMfY8RLfmbujNhZh16fudlHUnFms3TQ/exec',
 
@@ -188,15 +188,16 @@ async function loadRules() {
     const data = await fetchSheetData(CONFIG.rulesSheetId);
     const rows = data.table.rows;
 
-    // config列を1行目から取得（config_startRule=N列, config_isPaused=O列）
+    // config列を1行目から取得（config_startRule=O列, config_isPaused=P列）
+    // ※B列にhash追加により列インデックスが+1ずれた
     const remoteConfig = {};
     if (rows.length > 0 && rows[0].c) {
       const firstRow = rows[0].c;
-      if (firstRow[13]?.v !== undefined && firstRow[13]?.v !== null) {
-        remoteConfig.startRule = firstRow[13].v;
-      }
       if (firstRow[14]?.v !== undefined && firstRow[14]?.v !== null) {
-        remoteConfig.isPaused = firstRow[14].v;
+        remoteConfig.startRule = firstRow[14].v;  // O列: config_startRule（hash値）
+      }
+      if (firstRow[15]?.v !== undefined && firstRow[15]?.v !== null) {
+        remoteConfig.isPaused = firstRow[15].v;   // P列: config_isPaused
       }
     }
     state.remoteConfig = remoteConfig;
@@ -208,18 +209,19 @@ async function loadRules() {
 
       return {
         num: cells[0]?.v || 0,           // A: num
-        id: cells[1]?.v || '',           // B: id
-        major: cells[2]?.v === true || cells[2]?.v === 'TRUE',  // C: major
-        subMajor: cells[3]?.v === true || cells[3]?.v === 'TRUE',  // D: sub_major
-        firstRule: cells[4]?.v === true || cells[4]?.v === 'TRUE',  // E: first_rule
-        ja: cells[5]?.v || '',           // F: ja
-        en: cells[6]?.v || '',           // G: en
-        // cells[7] = auto_translate (skip)
-        jankenJa: cells[8]?.v || '',     // I: janken_ja
-        jankenEn: cells[9]?.v || '',     // J: janken_en
-        // cells[10] = auto_translate_janken_en (skip)
-        componentJa: cells[11]?.v || '', // L: component_ja
-        componentEn: cells[12]?.v || '', // M: component_en
+        hash: cells[1]?.v ?? 0,          // B: hash（負の値もあるので ?? を使用）
+        id: cells[2]?.v || '',           // C: id
+        major: cells[3]?.v === true || cells[3]?.v === 'TRUE',  // D: major
+        subMajor: cells[4]?.v === true || cells[4]?.v === 'TRUE',  // E: sub_major
+        firstRule: cells[5]?.v === true || cells[5]?.v === 'TRUE',  // F: first_rule
+        ja: cells[6]?.v || '',           // G: ja
+        en: cells[7]?.v || '',           // H: en
+        // cells[8] = auto_translate (skip)
+        jankenJa: cells[9]?.v || '',     // J: janken_ja
+        jankenEn: cells[10]?.v || '',    // K: janken_en
+        // cells[11] = auto_translate_janken_en (skip)
+        componentJa: cells[12]?.v || '', // M: component_ja
+        componentEn: cells[13]?.v || '', // N: component_en
       };
     }).filter(rule => rule && rule.ja);
 
@@ -275,6 +277,7 @@ function prepareSegments(rules) {
     jaParts.forEach((part, i) => {
       segments.push({
         num: rule.num,
+        hash: rule.hash,  // GAS送信用
         displayNum: displayNum,
         jaSegment: part,
         enFull: i === jaParts.length - 1 ? rule.en : null,  // 最後のセグメントのみ英語
@@ -840,7 +843,8 @@ function makeCurrentRuleBlack() {
 // ========================================
 function updatePageTitle() {
   const currentSegment = state.segments[state.currentSegmentIndex - 1];
-  const currentRuleNum = currentSegment ? currentSegment.num : CONFIG.startRule;
+  // CONFIG.startRuleはhash値なので、numに変換（hash + 12）
+  const currentRuleNum = currentSegment ? currentSegment.num : (CONFIG.startRule + 12);
 
   let status = '待機中';
   if (state.isPaused) {
@@ -861,11 +865,12 @@ function reportStatus(status) {
   if (!CONFIG.statusGasUrl) return;
 
   const currentSegment = state.segments[state.currentSegmentIndex - 1];
-  const num = currentSegment ? currentSegment.num : CONFIG.startRule;
+  // GAS送信用はhash値を使用（config_startRuleもhash値）
+  const hash = currentSegment ? currentSegment.hash : (state.startHash ?? 0);
   const segment = `${state.currentSegmentIndex}/${state.segments.length}`;
 
   // 同じステータスなら送信しない
-  const statusKey = `${num}-${status}`;
+  const statusKey = `${hash}-${status}`;
   if (statusKey === lastReportedStatus) return;
   lastReportedStatus = statusKey;
 
@@ -873,7 +878,7 @@ function reportStatus(status) {
   const params = new URLSearchParams({
     timestamp: new Date().toISOString(),
     sessionId: SESSION_ID,
-    num: num,
+    hash: hash,
     segment: segment,
     status: status,
   });
@@ -886,7 +891,7 @@ function reportStatus(status) {
   const url = `${CONFIG.statusGasUrl}?${params.toString()}`;
 
   fetch(url, { mode: 'no-cors' })
-    .then(() => console.log(`Status: ${status} #${num} (${segment})`))
+    .then(() => console.log(`Status: ${status} hash=${hash} (${segment})`))
     .catch(e => console.error('Status report failed:', e));
 }
 
@@ -1502,14 +1507,16 @@ function findNextBreakpointIndex(startIndex) {
 }
 
 function displayInitialRules() {
-  // 開始ルール番号を取得（URLパラメータまたはリモート設定）
-  const startRule = CONFIG.startRule;
+  // 開始ルール番号を取得（CONFIG.startRuleはhash値、numに変換）
+  const startHash = CONFIG.startRule;
+  const startNum = startHash + 12;  // hash → num変換
+  state.startHash = startHash;  // reportStatus用に保持
 
   // 開始ルールの最後のセグメントを取得
-  const ruleEnd = findSegmentIndexForRule(startRule, 'last');
+  const ruleEnd = findSegmentIndexForRule(startNum, 'last');
 
   if (ruleEnd === -1) {
-    console.warn(`Rule #${startRule} not found in ${state.segments.length} segments, starting from beginning`);
+    console.warn(`Rule #${startNum} (hash=${startHash}) not found in ${state.segments.length} segments, starting from beginning`);
     // フォールバック：先頭のブレークポイントまで表示
     if (state.segments.length === 0) return;
   }
@@ -1539,7 +1546,7 @@ function displayInitialRules() {
       numberElement.textContent = `#${segment.displayNum}`;
 
       // 開始ルール以下は黒、それ以降はグレー
-      if (Number(segment.num) <= Number(startRule)) {
+      if (Number(segment.num) <= Number(startNum)) {
         numberElement.classList.remove('generating');
         jaElement.classList.remove('generating');
         enElement.classList.remove('generating');
@@ -2645,11 +2652,12 @@ function startRemoteConfigPolling() {
       if (!firstRow) return;
 
       const config = {};
-      if (firstRow[13]?.v !== undefined && firstRow[13]?.v !== null) {
-        config.startRule = firstRow[13].v;  // N列: config_startRule
-      }
+      // ※B列にhash追加により列インデックスが+1ずれた
       if (firstRow[14]?.v !== undefined && firstRow[14]?.v !== null) {
-        config.isPaused = firstRow[14].v;   // O列: config_isPaused
+        config.startRule = firstRow[14].v;  // O列: config_startRule（hash値）
+      }
+      if (firstRow[15]?.v !== undefined && firstRow[15]?.v !== null) {
+        config.isPaused = firstRow[15].v;   // P列: config_isPaused
       }
       state.remoteConfig = config;
 
@@ -2919,14 +2927,14 @@ async function init() {
   // リモート設定を適用（URLパラメータがない場合）
   if (!new URLSearchParams(window.location.search).has('startRule')) {
     if (state.remoteConfig?.startRule !== undefined) {
-      const startRule = parseInt(state.remoteConfig.startRule);
-      if (!isNaN(startRule)) {
-        CONFIG.startRule = startRule;
-        console.log(`Start rule from remote config: ${startRule}`);
+      const startHash = parseInt(state.remoteConfig.startRule);
+      if (!isNaN(startHash)) {
+        CONFIG.startRule = startHash;
+        console.log(`Start rule from remote config: hash=${startHash} (num=${startHash + 12})`);
       }
     }
   }
-  console.log(`CONFIG.startRule = ${CONFIG.startRule}`);
+  console.log(`CONFIG.startRule (hash) = ${CONFIG.startRule}, num = ${CONFIG.startRule + 12}`);
 
   // 初期ルールを表示
   displayInitialRules();
