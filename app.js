@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.110';
+const VERSION = '1.0.112';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -461,11 +461,11 @@ function addComponentInstant(ja, en) {
 }
 
 // `/` 区切りの場合は分割して複数行に
-function addHandInstant(ja, en) {
+function addHandInstant(ja, en, timestampOverride = null) {
   const jaItems = ja.split(' / ').map(s => s.trim()).filter(s => s);
   const enItems = en.split(' / ').map(s => s.trim()).filter(s => s);
   const count = Math.max(jaItems.length, enItems.length);
-  const ts = formatTimestamp(new Date());
+  const ts = timestampOverride ?? formatTimestamp(new Date());
 
   // 正順で末尾に追加（新着が下）
   for (let i = 0; i < count; i++) {
@@ -481,11 +481,11 @@ function addHandInstant(ja, en) {
 }
 
 // タイプライター表示（生成中用、キューで逐次実行）
-function queueLeftPanelTypewriter(type, ja, en) {
-  leftPanelQueue = leftPanelQueue.then(() => typewriterLeftPanel(type, ja, en));
+function queueLeftPanelTypewriter(type, ja, en, options = {}) {
+  leftPanelQueue = leftPanelQueue.then(() => typewriterLeftPanel(type, ja, en, options));
 }
 
-async function typewriterLeftPanel(type, ja, en) {
+async function typewriterLeftPanel(type, ja, en, options = {}) {
   const isComponent = type === 'component';
   const jaListEl = isComponent ? elements.componentsListJa : elements.handsListJa;
   const enListEl = isComponent ? elements.componentsListEn : elements.handsListEn;
@@ -496,7 +496,7 @@ async function typewriterLeftPanel(type, ja, en) {
   const count = Math.max(jaItems.length, enItems.length);
 
   // タイムスタンプ（表示時刻）
-  const ts = formatTimestamp(new Date());
+  const ts = options.timestampOverride ?? formatTimestamp(new Date());
 
   // 各アイテムを順番にタイプライター表示
   for (let i = 0; i < count; i++) {
@@ -1584,10 +1584,14 @@ function displayInitialRules() {
           versionElement.textContent = `v.${ver.major}.${ver.subMajor}.${ver.minor}`;
           versionElement.classList.remove('generating');
 
-          const now = new Date();
-          const ts = formatTimestamp(now);
-          const parts = ts.split(' ');
-          timestampElement.textContent = parts.join('\n');
+          if (isFirstOfFirstRules) {
+            timestampElement.textContent = '--';
+          } else {
+            const now = new Date();
+            const ts = formatTimestamp(now);
+            const parts = ts.split(' ');
+            timestampElement.textContent = parts.join('\n');
+          }
           timestampElement.classList.remove('generating');
         }
       }
@@ -1597,7 +1601,8 @@ function displayInitialRules() {
         addComponentInstant(segment.componentJa, segment.componentEn);
       }
       if (segment.jankenJa) {
-        addHandInstant(segment.jankenJa, segment.jankenEn);
+        const handTimestampOverride = isFirstOfFirstRules ? '--' : null;
+        addHandInstant(segment.jankenJa, segment.jankenEn, handTimestampOverride);
       }
     }
 
@@ -1770,7 +1775,11 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
         state.pendingComponent = { ja: seg.componentJa, en: seg.componentEn };
       }
       if (seg.jankenJa) {
-        state.pendingHands = { ja: seg.jankenJa, en: seg.jankenEn };
+        state.pendingHands = {
+          ja: seg.jankenJa,
+          en: seg.jankenEn,
+          timestampOverride: isFirstOfFirstRules ? '--' : null,
+        };
       }
     }
 
@@ -1798,7 +1807,9 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
         state.pendingComponent = null;
       }
       if (state.pendingHands) {
-        queueLeftPanelTypewriter('hands', state.pendingHands.ja, state.pendingHands.en);
+        queueLeftPanelTypewriter('hands', state.pendingHands.ja, state.pendingHands.en, {
+          timestampOverride: state.pendingHands.timestampOverride,
+        });
         state.pendingHands = null;
       }
     }
@@ -1821,10 +1832,13 @@ async function generateUntilNextBreakpoint(trigger = 'manual') {
         const versionText = `v.${ver.major}.${ver.subMajor}.${ver.minor}`;
 
         // タイムスタンプテキスト計算
-        const now = new Date();
-        const ts = formatTimestamp(now);
-        const parts = ts.split(' ');
-        const timestampText = parts.join('\n');
+        let timestampText = '--';
+        if (!isFirstOfFirstRules) {
+          const now = new Date();
+          const ts = formatTimestamp(now);
+          const parts = ts.split(' ');
+          timestampText = parts.join('\n');
+        }
 
         // タイプライター表示
         await typewriterVersion(versionText);
