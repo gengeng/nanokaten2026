@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.105';
+const VERSION = '1.0.106';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -894,9 +894,13 @@ function reportStatus(status) {
   if (statusKey === lastReportedStatus) return;
   lastReportedStatus = statusKey;
 
+  // タイムスタンプ（日本時間 yyyy/MM/dd HH:mm:ss）
+  const now = new Date();
+  const jstTimestamp = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
   // パラメータ組み立て
   const params = new URLSearchParams({
-    timestamp: new Date().toISOString(),
+    timestamp: jstTimestamp,
     sessionId: SESSION_ID,
     hash: hash,
     segment: segment,
