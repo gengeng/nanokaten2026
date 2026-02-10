@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.104';
+const VERSION = '1.0.105';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -111,8 +111,8 @@ const state = {
   startTimeReloaded: false,  // start_time到達済みフラグ（二重リロード防止）
 };
 
-// URLパラメータでデバッグモード判定（デフォルトでオン）
-let isDebugMode = true;
+// URLパラメータでデバッグモード判定（デフォルトでオフ、?debug=1 で有効化）
+let isDebugMode = new URLSearchParams(window.location.search).has('debug');
 
 // タイトル5回タップでデバッグモード
 let titleTapCount = 0;
@@ -2699,28 +2699,28 @@ function setupEventListeners() {
 
   elements.ruleList.addEventListener('scroll', checkScrollPosition);
 
-  // タイトル5回タップでデバッグモード有効化
-  const gameTitle = document.querySelector('.left-half-header-ja');
-  if (gameTitle) {
-    gameTitle.addEventListener('click', () => {
-      titleTapCount++;
-
-      // タイマーリセット（2秒以内に5回タップ）
-      if (titleTapTimer) clearTimeout(titleTapTimer);
-      titleTapTimer = setTimeout(() => {
-        titleTapCount = 0;
-      }, 2000);
-
-      // 5回タップでデバッグモード有効化
-      if (titleTapCount >= 5) {
-        titleTapCount = 0;
-        if (!isDebugMode) {
-          isDebugMode = true;
-          setupDebugPanel();
-        }
-      }
-    });
-  }
+  // タイトル5回タップでデバッグモード有効化（現在無効化 - 復活時はコメント解除）
+  // const gameTitle = document.querySelector('.left-half-header-ja');
+  // if (gameTitle) {
+  //   gameTitle.addEventListener('click', () => {
+  //     titleTapCount++;
+  //
+  //     // タイマーリセット（2秒以内に5回タップ）
+  //     if (titleTapTimer) clearTimeout(titleTapTimer);
+  //     titleTapTimer = setTimeout(() => {
+  //       titleTapCount = 0;
+  //     }, 2000);
+  //
+  //     // 5回タップでデバッグモード有効化
+  //     if (titleTapCount >= 5) {
+  //       titleTapCount = 0;
+  //       if (!isDebugMode) {
+  //         isDebugMode = true;
+  //         setupDebugPanel();
+  //       }
+  //     }
+  //   });
+  // }
 }
 
 // ========================================
@@ -3069,8 +3069,10 @@ async function init() {
   // スティッキーヘッダー監視を開始
   setupStickyObservers();
 
-  // デバッグパネルをセットアップ
-  setupDebugPanel();
+  // デバッグパネルをセットアップ（?debug=1 でのみ有効）
+  if (isDebugMode) {
+    setupDebugPanel();
+  }
 
   // リモート設定の定期確認を開始
   startRemoteConfigPolling();
