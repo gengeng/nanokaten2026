@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.94';
+const VERSION = '1.0.95';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -1507,16 +1507,17 @@ function findNextBreakpointIndex(startIndex) {
 }
 
 function displayInitialRules() {
-  // 開始ルール番号を取得（CONFIG.startRuleはhash値、numに変換）
+  // 開始ルール番号を取得（CONFIG.startRuleはhash値 = 次に生成するルールのhash）
   const startHash = CONFIG.startRule;
-  const startNum = startHash + 12;  // hash → num変換
+  const startNum = startHash + 12;  // hash → num変換（次に生成するルールのnum）
+  const lastBlackNum = startNum - 1;  // 黒で表示する最後のルールのnum
   state.startHash = startHash;  // reportStatus用に保持
 
-  // 開始ルールの最後のセグメントを取得
-  const ruleEnd = findSegmentIndexForRule(startNum, 'last');
+  // 黒で表示する最後のルールのセグメントを取得
+  const ruleEnd = findSegmentIndexForRule(lastBlackNum, 'last');
 
   if (ruleEnd === -1) {
-    console.warn(`Rule #${startNum} (hash=${startHash}) not found in ${state.segments.length} segments, starting from beginning`);
+    console.warn(`Rule #${lastBlackNum} (hash=${startHash - 1}) not found in ${state.segments.length} segments, starting from beginning`);
     // フォールバック：先頭のブレークポイントまで表示
     if (state.segments.length === 0) return;
   }
@@ -1545,8 +1546,8 @@ function displayInitialRules() {
       // 初期表示なので番号を即座に設定（displayNumはprepareSegmentsで計算済み）
       numberElement.textContent = `#${segment.displayNum}`;
 
-      // 開始ルール以下は黒、それ以降はグレー
-      if (Number(segment.num) <= Number(startNum)) {
+      // 黒で表示する最後のルール以下は黒、それ以降はグレー
+      if (Number(segment.num) <= Number(lastBlackNum)) {
         numberElement.classList.remove('generating');
         jaElement.classList.remove('generating');
         enElement.classList.remove('generating');
