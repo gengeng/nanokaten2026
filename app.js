@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.99';
+const VERSION = '1.0.100';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -29,7 +29,7 @@ const CONFIG = {
   gaugeDrainEasing: 'ease-in-out', // ドレインのイージング
 
   // タイポ設定
-  typoChance: 0.05,        // タイポ確率（0-1）
+  typoChance: 0.02,        // タイポ確率（0-1）
   typoPause: 4,            // タイポ後の停止（倍率）
 
   // 切り替え停止（倍率）
@@ -816,21 +816,51 @@ function createRuleElement(num, options = {}) {
   return { ruleElement, numberElement, versionElement, timestampElement, jaElement, enElement };
 }
 
+// 滲み広がり（グレー→黒）の設定
+const inkSpreadConfig = {
+  charDelay: 15,        // 1文字あたりの遅延（ms）
+  fadeDuration: 200,    // 各文字のフェード時間（ms）
+};
+
 function makeCurrentRuleBlack() {
   // インク侵食の対象スパンを確定（まだフェード中のものも最終色へ）
-  // → inline colorを削除して親のCSSカラーを継承させる
-  // → .generating削除でCSS transitionにより黒にフェード
+  inkFadeFinalizeElement(state.currentNumberElement);
+  inkFadeFinalizeElement(state.currentJaElement);
+  inkFadeFinalizeElement(state.currentEnElement);
+
+  // 滲み広がりアニメーション：1文字目から順に黒くしていく
+  const allSpans = [];
+
+  // #番号、日本語、英語の順に文字を収集
   [state.currentNumberElement, state.currentJaElement, state.currentEnElement].forEach(el => {
     if (!el) return;
-    // インク侵食リストからクリア＆inline color除去
-    inkFadeFinalizeElement(el);
-    // spanのinline colorを除去 → 親のcolorを継承
-    el.querySelectorAll('span[style*="color"]').forEach(span => {
-      span.style.removeProperty('color');
+    el.querySelectorAll('span').forEach(span => {
+      allSpans.push({ span, parent: el });
     });
-    // generating クラス削除 → CSS transition で黒へ
-    el.classList.remove('generating');
   });
+
+  // 各文字に遅延をつけて黒にフェード
+  allSpans.forEach((item, index) => {
+    const delay = index * inkSpreadConfig.charDelay;
+    setTimeout(() => {
+      item.span.style.transition = `color ${inkSpreadConfig.fadeDuration}ms ease-out`;
+      item.span.style.color = '#000';
+    }, delay);
+  });
+
+  // 全ての文字のフェード完了後に.generatingクラスを削除
+  const totalDuration = allSpans.length * inkSpreadConfig.charDelay + inkSpreadConfig.fadeDuration;
+  setTimeout(() => {
+    [state.currentNumberElement, state.currentJaElement, state.currentEnElement].forEach(el => {
+      if (!el) return;
+      el.classList.remove('generating');
+      // inline styleをクリーンアップ
+      el.querySelectorAll('span').forEach(span => {
+        span.style.removeProperty('transition');
+        span.style.removeProperty('color');
+      });
+    });
+  }, totalDuration);
 
   // バージョンとタイムスタンプ（タイプライターで設定済み）
   // inline colorを除去して.generatingクラスも削除
