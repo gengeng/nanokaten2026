@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.112';
+const VERSION = '1.0.113';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -79,6 +79,7 @@ const state = {
   pendingComponent: null,     // ルール完了後に左カラム表示する内容物データ
   pendingHands: null,         // ルール完了後に左カラム表示する手データ
   firstRuleSeen: false,       // 最初のfirstRule（#0）が表示済みかどうか
+  firstHandsSeen: false,      // 最初の手（Hands）が表示済みかどうか
 
   // デバッグ用設定（リアルタイム変更可能）
   gaugeDuration: CONFIG.gaugeDuration,
@@ -465,7 +466,8 @@ function addHandInstant(ja, en, timestampOverride = null) {
   const jaItems = ja.split(' / ').map(s => s.trim()).filter(s => s);
   const enItems = en.split(' / ').map(s => s.trim()).filter(s => s);
   const count = Math.max(jaItems.length, enItems.length);
-  const ts = timestampOverride ?? formatTimestamp(new Date());
+  const effectiveOverride = timestampOverride ?? (!state.firstHandsSeen ? '--' : null);
+  const ts = effectiveOverride ?? formatTimestamp(new Date());
 
   // 正順で末尾に追加（新着が下）
   for (let i = 0; i < count; i++) {
@@ -478,6 +480,8 @@ function addHandInstant(ja, en, timestampOverride = null) {
       elements.handsListEn.append(createLeftPanelRow(enItems[i], ts, true));
     }
   }
+
+  state.firstHandsSeen = true;
 }
 
 // タイプライター表示（生成中用、キューで逐次実行）
@@ -487,6 +491,7 @@ function queueLeftPanelTypewriter(type, ja, en, options = {}) {
 
 async function typewriterLeftPanel(type, ja, en, options = {}) {
   const isComponent = type === 'component';
+  const isHands = type === 'hands';
   const jaListEl = isComponent ? elements.componentsListJa : elements.handsListJa;
   const enListEl = isComponent ? elements.componentsListEn : elements.handsListEn;
 
@@ -496,7 +501,11 @@ async function typewriterLeftPanel(type, ja, en, options = {}) {
   const count = Math.max(jaItems.length, enItems.length);
 
   // タイムスタンプ（表示時刻）
-  const ts = options.timestampOverride ?? formatTimestamp(new Date());
+  let timestampOverride = options.timestampOverride ?? null;
+  if (isHands && !state.firstHandsSeen && timestampOverride === null) {
+    timestampOverride = '--';
+  }
+  const ts = timestampOverride ?? formatTimestamp(new Date());
 
   // 各アイテムを順番にタイプライター表示
   for (let i = 0; i < count; i++) {
@@ -580,6 +589,10 @@ async function typewriterLeftPanel(type, ja, en, options = {}) {
       enTsSpan.appendChild(document.createTextNode(char));
       await delay(getTypewriterDelay() * CONFIG.metaTypeSpeedFactor);
     }
+  }
+
+  if (isHands) {
+    state.firstHandsSeen = true;
   }
 
   // ハイライトは次の generateUntilNextBreakpoint() で removeLeftPanelHighlights() が呼ばれるまで維持
