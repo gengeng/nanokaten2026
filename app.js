@@ -5,9 +5,8 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.108';
+const VERSION = '1.0.110';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
-const START_TIME_RELOAD_KEY = 'start_time_reloaded_at';
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
@@ -160,50 +159,6 @@ async function fetchSheetData(sheetId, options = {}) {
   return parseGoogleSheetResponse(text);
 }
 
-// Google SheetsのDate型（Date(...)文字列/シリアル/ISO）をDateに変換
-function parseSheetDate(value) {
-  if (value === undefined || value === null) return null;
-  if (value instanceof Date) return value;
-
-  if (typeof value === 'number') {
-    // Excel/Sheetsシリアル値: (日数 - 25569) * 86400000
-    return new Date((value - 25569) * 86400000);
-  }
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    const match = trimmed.match(/^Date\((.+)\)$/);
-    if (match) {
-      const parts = match[1].split(',').map(part => part.trim());
-      const nums = parts.map(part => parseInt(part, 10));
-      if (nums.some(n => Number.isNaN(n))) return new Date(NaN);
-      const [y, m, d, hh = 0, mm = 0, ss = 0, ms = 0] = nums;
-      return new Date(y, m, d, hh, mm, ss, ms);
-    }
-    return new Date(trimmed);
-  }
-
-  return new Date(value);
-}
-
-function formatDebugDate(value) {
-  if (value === undefined || value === null || value === '') return '-';
-  const parsed = parseSheetDate(value);
-  if (!parsed || Number.isNaN(parsed.getTime())) return String(value);
-  const pretty = parsed.toLocaleString('ja-JP', { hour12: false });
-  if (typeof value === 'string' || typeof value === 'number') {
-    return `${pretty} (${String(value)})`;
-  }
-  return pretty;
-}
-
-function formatDebugMs(msString) {
-  if (!msString) return '-';
-  const ms = parseInt(msString, 10);
-  if (Number.isNaN(ms)) return String(msString);
-  return `${new Date(ms).toLocaleString('ja-JP', { hour12: false })} (${msString})`;
-}
-
 // ルールテキスト内の {id:XXXXXXXX} を #N に置換
 function resolveIdReferences(rules) {
   // id → num のマップを作成
@@ -250,9 +205,6 @@ async function loadRules() {
       }
       if (firstRow[16]?.v !== undefined && firstRow[16]?.v !== null) {
         remoteConfig.durationMinute = firstRow[16].v;  // Q列: duration_minute
-      }
-      if (firstRow[17]?.v !== undefined && firstRow[17]?.v !== null) {
-        remoteConfig.startTime = firstRow[17].v;  // R列: start_time（Date値）
       }
     }
     state.remoteConfig = remoteConfig;
@@ -2828,9 +2780,6 @@ function startRemoteConfigPolling() {
       if (firstRow[15]?.v !== undefined && firstRow[15]?.v !== null) {
         config.isPaused = firstRow[15].v;   // P列: config_isPaused
       }
-      if (firstRow[17]?.v !== undefined && firstRow[17]?.v !== null) {
-        config.startTime = firstRow[17].v;  // R列: start_time（Date値）
-      }
       state.remoteConfig = config;
 
       // 一時停止フラグの確認
@@ -2857,37 +2806,6 @@ function startRemoteConfigPolling() {
             reportStatus('リモートリロード');
             location.reload();
             return;
-          }
-        }
-      }
-
-      // start_time到達でリロード（Date(...) 形式も許容）
-      if (config.startTime) {
-        const targetTime = parseSheetDate(config.startTime);
-        if (!targetTime || Number.isNaN(targetTime.getTime())) {
-          console.warn('Invalid start_time:', config.startTime);
-        } else {
-          const now = new Date();
-          if (now >= targetTime) {
-            const key = String(targetTime.getTime());
-            let lastReloaded = null;
-            try {
-              lastReloaded = localStorage.getItem(START_TIME_RELOAD_KEY);
-            } catch (e) {
-              lastReloaded = null;
-            }
-
-            if (lastReloaded !== key) {
-              try {
-                localStorage.setItem(START_TIME_RELOAD_KEY, key);
-              } catch (e) {
-                // localStorageが使えない環境でもリロード自体は許可
-              }
-              console.log(`Start time reached: ${targetTime.toISOString()}`);
-              reportStatus('スケジュールリロード');
-              location.reload();
-              return;
-            }
           }
         }
       }
@@ -3055,9 +2973,6 @@ function setupDebugPanel() {
     const segmentEl = document.getElementById('debug-segment');
     const totalEl = document.getElementById('debug-total');
     const statusEl = document.getElementById('debug-status');
-    const startTimeEl = document.getElementById('debug-start-time');
-    const startTimeLocalEl = document.getElementById('debug-start-time-local');
-
     if (segmentEl) segmentEl.textContent = state.currentSegmentIndex;
     if (totalEl) totalEl.textContent = state.segments.length;
     if (statusEl) {
@@ -3070,18 +2985,6 @@ function setupDebugPanel() {
       } else {
         statusEl.textContent = '待機中';
       }
-    }
-    if (startTimeEl) {
-      startTimeEl.textContent = formatDebugDate(state.remoteConfig?.startTime);
-    }
-    if (startTimeLocalEl) {
-      let stored = null;
-      try {
-        stored = localStorage.getItem(START_TIME_RELOAD_KEY);
-      } catch (e) {
-        stored = null;
-      }
-      startTimeLocalEl.textContent = formatDebugMs(stored);
     }
   }, 500);
 
