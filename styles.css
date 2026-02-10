@@ -117,6 +117,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 32px;
+  margin-top: 16px;  /* verの下と「手」の間 */
 }
 
 /* 日本語ヘッダー：パネル上端と揃える */

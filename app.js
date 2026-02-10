@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.101';
+const VERSION = '1.0.103';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -2184,18 +2184,17 @@ function finishGauge() {
   // 思考中メッセージのタイマーをクリア
   clearThinkingMessageTimers();
 
-  // 停止時間にゆらぎを適用
-  const durationVariance = (Math.random() * 2 - 1) * state.gaugePauseDurationVariance;
-  const pauseDuration = Math.max(100, state.gaugePauseDuration * (1 + durationVariance));
-
-  // 「思考完了」を表示
+  // 1. まず「思考完了」を表示
   const jaEl = elements.actionButton?.querySelector('.btn-text-ja');
   const enEl = elements.actionButton?.querySelector('.btn-text-en');
   if (jaEl) jaEl.textContent = BUTTON_STATES.complete.ja;
   if (enEl) enEl.textContent = BUTTON_STATES.complete.en;
 
-  // 停止後 → 100% へスムーズにアニメーション
+  // 2. 「思考完了」表示を1秒見せてから、ゲージを100%にする
+  const completeDisplayDuration = 1000;  // 思考完了を表示する時間
+
   setTimeout(() => {
+    // 3. ゲージを100%へスムーズにアニメーション
     elements.progressFill.style.transition = 'width 0.5s ease-out';
     elements.progressFill.style.width = '100%';
 
@@ -2203,7 +2202,7 @@ function finishGauge() {
       elements.progressFill.style.transition = '';
       onGaugeComplete();
     }, 500);
-  }, pauseDuration);
+  }, completeDisplayDuration);
 }
 
 function onGaugeComplete() {
@@ -2277,7 +2276,7 @@ function onTextComplete() {
     // ゲージがまだ動いている → 思考中状態へ
     state.isThinking = true;
     updateButtonState();
-    // gaugeDurationが20秒以上なら、10秒後にメッセージ切り替え開始
+    // gaugeDurationが16秒以上なら、8秒後にメッセージ切り替え開始
     startThinkingMessageRotation();
   }
   // ゲージが既に完了済み（gaugeStartTime === null）なら何もしない
@@ -2288,10 +2287,10 @@ function startThinkingMessageRotation() {
   // 既存のタイマーをクリア
   clearThinkingMessageTimers();
 
-  // gaugeDurationが20秒未満なら何もしない
-  if (state.gaugeDuration < 20000) return;
+  // gaugeDurationが16秒未満なら何もしない
+  if (state.gaugeDuration < 16000) return;
 
-  // 10秒後にメッセージ切り替え開始
+  // 8秒後にメッセージ切り替え開始
   thinkingStartTimeout = setTimeout(() => {
     // 最初のメッセージを表示
     showRandomThinkingMessage();
@@ -2302,7 +2301,7 @@ function startThinkingMessageRotation() {
         showRandomThinkingMessage();
       }
     }, 10000);
-  }, 10000);
+  }, 8000);
 }
 
 // ランダムな思考中メッセージを表示
@@ -2379,9 +2378,9 @@ const buttonMotion = {
 
 // ボタン状態名
 const BUTTON_STATES = {
-  idle:       { ja: '続きを出力',          en: 'Continue Generating',    isIdle: true,  countdown: false },
-  countdown:  { ja: '自動生成まであと{time}', en: 'Auto-generate in {time}', isIdle: true,  countdown: true  },
-  generating: { ja: 'ルール出力中...',      en: 'Generating Rules...',     isIdle: false, countdown: false },
+  idle:       { ja: '続きを出力',          en: 'Continue',               isIdle: true,  countdown: false },
+  countdown:  { ja: '自動出力まで{time}',   en: 'Auto in {time}',         isIdle: true,  countdown: true  },
+  generating: { ja: 'ルール出力中...',      en: 'Outputting...',          isIdle: false, countdown: false },
   thinking:   { ja: '次のルールを思考中...', en: 'Thinking...',            isIdle: false, countdown: false },
   complete:   { ja: '思考完了',            en: 'Complete',               isIdle: false, countdown: false },
 };
