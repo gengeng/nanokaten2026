@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.100';
+const VERSION = '1.0.101';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -816,65 +816,46 @@ function createRuleElement(num, options = {}) {
   return { ruleElement, numberElement, versionElement, timestampElement, jaElement, enElement };
 }
 
-// 滲み広がり（グレー→黒）の設定
-const inkSpreadConfig = {
-  charDelay: 15,        // 1文字あたりの遅延（ms）
-  fadeDuration: 200,    // 各文字のフェード時間（ms）
-};
-
 function makeCurrentRuleBlack() {
   // インク侵食の対象スパンを確定（まだフェード中のものも最終色へ）
-  inkFadeFinalizeElement(state.currentNumberElement);
-  inkFadeFinalizeElement(state.currentJaElement);
-  inkFadeFinalizeElement(state.currentEnElement);
-
-  // 滲み広がりアニメーション：1文字目から順に黒くしていく
-  const allSpans = [];
-
-  // #番号、日本語、英語の順に文字を収集
+  // → inline colorを削除して親のCSSカラーを継承させる
+  // → .generating削除でCSS transitionにより黒にフェード
   [state.currentNumberElement, state.currentJaElement, state.currentEnElement].forEach(el => {
     if (!el) return;
-    el.querySelectorAll('span').forEach(span => {
-      allSpans.push({ span, parent: el });
+    // インク侵食リストからクリア＆inline color除去
+    inkFadeFinalizeElement(el);
+    // 各spanのinline colorを黒に上書き（白フラッシュ防止）
+    el.querySelectorAll('span[style*="color"]').forEach(span => {
+      span.style.color = '#000';
     });
-  });
-
-  // 各文字に遅延をつけて黒にフェード
-  allSpans.forEach((item, index) => {
-    const delay = index * inkSpreadConfig.charDelay;
+    // generating クラス削除 → CSS transition で黒へ
+    el.classList.remove('generating');
+    // フェード完了後にinline styleをクリーンアップ（500ms = CSS transition duration）
     setTimeout(() => {
-      item.span.style.transition = `color ${inkSpreadConfig.fadeDuration}ms ease-out`;
-      item.span.style.color = '#000';
-    }, delay);
-  });
-
-  // 全ての文字のフェード完了後に.generatingクラスを削除
-  const totalDuration = allSpans.length * inkSpreadConfig.charDelay + inkSpreadConfig.fadeDuration;
-  setTimeout(() => {
-    [state.currentNumberElement, state.currentJaElement, state.currentEnElement].forEach(el => {
-      if (!el) return;
-      el.classList.remove('generating');
-      // inline styleをクリーンアップ
-      el.querySelectorAll('span').forEach(span => {
-        span.style.removeProperty('transition');
+      el.querySelectorAll('span[style*="color"]').forEach(span => {
         span.style.removeProperty('color');
       });
-    });
-  }, totalDuration);
+    }, 550);
+  });
 
   // バージョンとタイムスタンプ（タイプライターで設定済み）
-  // inline colorを除去して.generatingクラスも削除
   const isFirstRule = state.currentNumberElement?.dataset.firstRule === 'true';
   const isFirstOfFirstRules = state.currentNumberElement?.dataset.firstOfFirstRules === 'true';
 
   [state.currentVersionElement, state.currentTimestampElement].forEach(el => {
     if (!el) return;
-    // 先に.generatingを除去（親colorをtransparent→#999に）してからinline colorを除去
-    // 順序が逆だとtransparentを一瞬継承して白く光る
-    el.classList.remove('generating');
+    // 各spanのinline colorを#999に上書き（白フラッシュ防止）
     el.querySelectorAll('span[style*="color"]').forEach(span => {
-      span.style.removeProperty('color');
+      span.style.color = '#999';
     });
+    // .generating除去（transparent→#999に）
+    el.classList.remove('generating');
+    // フェード完了後にinline styleをクリーンアップ
+    setTimeout(() => {
+      el.querySelectorAll('span[style*="color"]').forEach(span => {
+        span.style.removeProperty('color');
+      });
+    }, 550);
   });
 
   // タイトル下のバージョンバッジも更新
