@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.107';
+const VERSION = '1.0.108';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 const START_TIME_RELOAD_KEY = 'start_time_reloaded_at';
 
@@ -114,9 +114,13 @@ const state = {
 // URLパラメータでデバッグモード判定（デフォルトでオフ、?debug=1 で有効化）
 let isDebugMode = new URLSearchParams(window.location.search).has('debug');
 
-// タイトル5回タップでデバッグモード
-let titleTapCount = 0;
-let titleTapTimer = null;
+// デバッグパネル起動用タップシーケンス（JA/EN交互）
+const DEBUG_TAP_REQUIRED = 15;
+const DEBUG_TAP_RESET_MS = 2000;
+let debugTapCount = 0;
+let debugTapExpected = 'ja';
+let debugTapTimer = null;
+let debugPanelInitialized = false;
 
 // ========================================
 // DOM要素
@@ -180,6 +184,24 @@ function parseSheetDate(value) {
   }
 
   return new Date(value);
+}
+
+function formatDebugDate(value) {
+  if (value === undefined || value === null || value === '') return '-';
+  const parsed = parseSheetDate(value);
+  if (!parsed || Number.isNaN(parsed.getTime())) return String(value);
+  const pretty = parsed.toLocaleString('ja-JP', { hour12: false });
+  if (typeof value === 'string' || typeof value === 'number') {
+    return `${pretty} (${String(value)})`;
+  }
+  return pretty;
+}
+
+function formatDebugMs(msString) {
+  if (!msString) return '-';
+  const ms = parseInt(msString, 10);
+  if (Number.isNaN(ms)) return String(msString);
+  return `${new Date(ms).toLocaleString('ja-JP', { hour12: false })} (${msString})`;
 }
 
 // ルールテキスト内の {id:XXXXXXXX} を #N に置換
@@ -2729,28 +2751,42 @@ function setupEventListeners() {
 
   elements.ruleList.addEventListener('scroll', checkScrollPosition);
 
-  // タイトル5回タップでデバッグモード有効化（現在無効化 - 復活時はコメント解除）
-  // const gameTitle = document.querySelector('.left-half-header-ja');
-  // if (gameTitle) {
-  //   gameTitle.addEventListener('click', () => {
-  //     titleTapCount++;
-  //
-  //     // タイマーリセット（2秒以内に5回タップ）
-  //     if (titleTapTimer) clearTimeout(titleTapTimer);
-  //     titleTapTimer = setTimeout(() => {
-  //       titleTapCount = 0;
-  //     }, 2000);
-  //
-  //     // 5回タップでデバッグモード有効化
-  //     if (titleTapCount >= 5) {
-  //       titleTapCount = 0;
-  //       if (!isDebugMode) {
-  //         isDebugMode = true;
-  //         setupDebugPanel();
-  //       }
-  //     }
-  //   });
-  // }
+  // JA/ENバージョン表示を交互に15回タップでデバッグパネル表示
+  const versionJa = document.getElementById('game-version-ja');
+  const versionEn = document.getElementById('game-version-en');
+  const resetDebugTap = () => {
+    debugTapCount = 0;
+    debugTapExpected = 'ja';
+    if (debugTapTimer) clearTimeout(debugTapTimer);
+    debugTapTimer = null;
+  };
+  const handleDebugTap = (side) => {
+    if (debugTapTimer) clearTimeout(debugTapTimer);
+    debugTapTimer = setTimeout(resetDebugTap, DEBUG_TAP_RESET_MS);
+
+    if (side !== debugTapExpected) {
+      resetDebugTap();
+      return;
+    }
+
+    debugTapCount += 1;
+    debugTapExpected = debugTapExpected === 'ja' ? 'en' : 'ja';
+
+    if (debugTapCount >= DEBUG_TAP_REQUIRED) {
+      resetDebugTap();
+      if (!isDebugMode) {
+        isDebugMode = true;
+      }
+      setupDebugPanel();
+    }
+  };
+
+  if (versionJa) {
+    versionJa.addEventListener('click', () => handleDebugTap('ja'));
+  }
+  if (versionEn) {
+    versionEn.addEventListener('click', () => handleDebugTap('en'));
+  }
 }
 
 // ========================================
@@ -2970,6 +3006,12 @@ function setupDebugPanel() {
 
   if (!panel) return;
 
+  if (debugPanelInitialized) {
+    panel.hidden = false;
+    return;
+  }
+  debugPanelInitialized = true;
+
   panel.hidden = false;
 
   // バージョン表示
@@ -3013,6 +3055,8 @@ function setupDebugPanel() {
     const segmentEl = document.getElementById('debug-segment');
     const totalEl = document.getElementById('debug-total');
     const statusEl = document.getElementById('debug-status');
+    const startTimeEl = document.getElementById('debug-start-time');
+    const startTimeLocalEl = document.getElementById('debug-start-time-local');
 
     if (segmentEl) segmentEl.textContent = state.currentSegmentIndex;
     if (totalEl) totalEl.textContent = state.segments.length;
@@ -3026,6 +3070,18 @@ function setupDebugPanel() {
       } else {
         statusEl.textContent = '待機中';
       }
+    }
+    if (startTimeEl) {
+      startTimeEl.textContent = formatDebugDate(state.remoteConfig?.startTime);
+    }
+    if (startTimeLocalEl) {
+      let stored = null;
+      try {
+        stored = localStorage.getItem(START_TIME_RELOAD_KEY);
+      } catch (e) {
+        stored = null;
+      }
+      startTimeLocalEl.textContent = formatDebugMs(stored);
     }
   }, 500);
 
