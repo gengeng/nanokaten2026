@@ -5,13 +5,13 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.115';
+const VERSION = '1.0.116';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
   spreadsheetId: '1eBk4OIyFRCGJYUgZ15bavQl5pngufGKUYm18Y0evJQg',
   rulesSheetId: '487776336',
-  typewriterSpeed: 8, // 1-100
+  typewriterSpeed: 15, // 1-100
   // URLパラメータまたはリモート設定から取得（hash値、num = hash + 12）
   startRule: parseInt(new URLSearchParams(window.location.search).get('startRule')) || 1,
   // GAS直接呼び出し（ステータス記録用）
