@@ -5,7 +5,7 @@
 // ========================================
 // 設定
 // ========================================
-const VERSION = '1.0.114';
+const VERSION = '1.0.115';
 const SESSION_ID = Math.random().toString(36).slice(2, 8);
 
 const CONFIG = {
@@ -2386,7 +2386,7 @@ const buttonMotion = {
 
 // ボタン状態名
 const BUTTON_STATES = {
-  idle:       { ja: '続きを出力',          en: 'Continue',               isIdle: true,  countdown: false },
+  idle:       { ja: 'タップして続きを出力',   en: 'Tap to Continue',         isIdle: true,  countdown: false },
   countdown:  { ja: '自動出力まで{time}',   en: 'Auto in {time}',         isIdle: true,  countdown: true  },
   generating: { ja: 'ルール出力中...',      en: 'Outputting...',          isIdle: false, countdown: false },
   thinking:   { ja: '次のルールを思考中...', en: 'Thinking...',            isIdle: false, countdown: false },
