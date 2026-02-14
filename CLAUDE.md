@@ -1,6 +1,6 @@
 # 完成しないゲーム（The Unfinished Game）
 
-iPad展示用Webサイト
+iPad展示用Webサイト — **展示終了**
 
 ## 概要
 
@@ -147,6 +147,10 @@ generating → idle:
 - テストHTMLはパラメータ調整→本番（app.js）に反映の流れで使う
 - テストHTMLのスタイルは本番（styles.css / index.html）と一致させること
 - ボタンテキスト色はCSSクラスで制御し、インラインの `style.color` で上書きしないこと
+
+## 展示記録
+
+- 展示は無事終了（2026年2月）
 
 ## TODO
 
